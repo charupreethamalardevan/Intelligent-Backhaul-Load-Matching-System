@@ -1,0 +1,223 @@
+{
+  "nav": {
+    "home": "Home",
+    "login": "Log in",
+    "signup": "Sign up",
+    "logout": "Log out",
+    "network": "Network",
+    "howMatchingWorks": "How matching works"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "search": "Search...",
+    "loading": "Loading...",
+    "notifications": "Notifications",
+    "toggleTheme": "Toggle theme",
+    "chooseLanguage": "Choose language",
+    "track": "Track",
+    "hide": "Hide"
+  },
+  "auth": {
+    "loginTitle": "Log in to IBLMS",
+    "email": "Email",
+    "password": "Password",
+    "loggingIn": "Logging in...",
+    "noAccount": "No account?",
+    "chooseRole": "Choose how you’ll use IBLMS"
+  },
+  "dashboard": {
+    "nav": {
+      "overview": "Overview",
+      "vehicles": "Vehicles",
+      "trips": "Trips",
+      "drivers": "Drivers",
+      "findLoads": "Find Loads",
+      "nearbyLoads": "Nearby Loads",
+      "myRequests": "My Requests",
+      "myLoads": "My Loads",
+      "findVehicles": "Find Vehicles"
+    },
+    "section": {
+      "overview": { "title": "Overview", "subtitleFleet": "Your fleet at a glance.", "subtitlePoster": "Your loads and bookings at a glance." },
+      "vehicles": { "title": "Vehicles", "subtitle": "Register trucks and assign them to drivers." },
+      "trips": { "title": "Trips", "subtitle": "Plan a vehicle’s availability for a return route." },
+      "drivers": { "title": "Drivers", "subtitle": "Invite drivers and see who’s assigned where." },
+      "findLoads": { "title": "Find Loads", "subtitle": "Ranked backhaul matches for one of your trips." },
+      "nearbyLoads": { "title": "Nearby Loads", "subtitle": "Browse open loads near any place." },
+      "requests": { "title": "My Requests", "subtitle": "Track every booking through its lifecycle." },
+      "loads": { "title": "My Loads", "subtitle": "Post a load and track its status." },
+      "findVehicles": { "title": "Find Vehicles", "subtitle": "Ranked backhaul vehicle matches for one of your open loads." }
+    }
+  },
+  "status": {
+    "pending_fleet_approval": "Pending Fleet Approval",
+    "requested": "Requested",
+    "accepted": "Accepted",
+    "confirmed": "Confirmed",
+    "pickup": "Pickup",
+    "in_transit": "In Transit",
+    "delivered": "Delivered",
+    "completed": "Completed",
+    "rejected": "Rejected",
+    "cancelled": "Cancelled"
+  },
+  "map": {
+    "live": "Live",
+    "simulatedPreview": "Simulated preview",
+    "shareLocation": "Share my location",
+    "sharing": "Sharing...",
+    "stopSharing": "Stop sharing",
+    "locationUnsupported": "Your browser can’t share live location.",
+    "locationDenied": "Location permission was denied.",
+    "noLiveLocationYet": "Waiting for a live position from the driver.",
+    "source": "Pickup",
+    "destination": "Destination",
+    "offlineNotice": "You’re offline — showing the last map tiles seen for this area.",
+    "unavailable": "Map unavailable for this trip."
+  },
+  "ml": {
+    "compatibilityLabel": "ML Compatibility",
+    "syntheticNote": "Predicted by a model trained on synthetic data, shown alongside the explainable score above.",
+    "profitabilityLabel": "ML Profit Forecast",
+    "profitabilityNote": "A second model's prediction of the realized profit margin, trained on synthetic data to capture cost variation the estimate above doesn't -- shown alongside, never instead of, that estimate."
+  },
+  "forms": {
+    "vehicle": {
+      "heading": "Vehicles",
+      "help": "Register a truck and assign it to a driver.",
+      "number": "Vehicle number",
+      "numberPlaceholder": "e.g. TN 09 AB 1234",
+      "type": "Vehicle type",
+      "capacity": "Capacity (tonnes)",
+      "capacityPlaceholder": "e.g. 9",
+      "capacityHint": "Maximum cargo weight this vehicle can carry.",
+      "fuelType": "Fuel type",
+      "cargoCompat": "Cargo compatibility",
+      "cargoCompatHint": "What this vehicle type can usually carry.",
+      "driverName": "Driver name",
+      "driverNamePlaceholder": "e.g. Ramesh Kumar",
+      "driverPhone": "Driver phone",
+      "driverPhonePlaceholder": "e.g. 9876543210",
+      "submit": "Add vehicle",
+      "submitting": "Adding...",
+      "remove": "Remove",
+      "noneYet": "No vehicles added yet.",
+      "unassigned": "Unassigned"
+    },
+    "trip": {
+      "heading": "Trips",
+      "help": "Plan a vehicle’s availability for a return route.",
+      "vehicle": "Vehicle",
+      "selectVehicle": "Select a vehicle",
+      "source": "Starting from",
+      "sourcePlaceholder": "e.g. Chennai",
+      "destination": "Heading to",
+      "destinationPlaceholder": "e.g. Madurai",
+      "availableFrom": "Available from",
+      "submit": "Add trip",
+      "submitting": "Adding...",
+      "remove": "Remove",
+      "noneYet": "No trips planned yet."
+    },
+    "findLoads": {
+      "heading": "Find Loads",
+      "help": "Ranked backhaul matches for one of your trips.",
+      "tripLabel": "Trip",
+      "selectTrip": "Select a trip",
+      "noVehicleAssigned": "This trip has no vehicle assigned.",
+      "planTripFirst": "Plan a trip first to find matching loads.",
+      "scoring": "Scoring loads...",
+      "driverApprovalNote": "Bookings made here need fleet approval before the driver sees them."
+    },
+    "nearbyLoads": {
+      "heading": "Nearby Loads",
+      "help": "Browse open loads near any place.",
+      "nearCity": "Near city",
+      "selectCity": "Select a city",
+      "radius": "Radius (km)",
+      "search": "Search",
+      "searching": "Searching...",
+      "resultsSummary": "{{count}} open load(s) within {{radius}} km of {{place}}.",
+      "noneFound": "No open loads found nearby."
+    },
+    "load": {
+      "heading": "My Loads",
+      "help": "Post a load and track its status.",
+      "pickup": "Pickup location",
+      "pickupPlaceholder": "e.g. Chennai",
+      "delivery": "Delivery location",
+      "deliveryPlaceholder": "e.g. Madurai",
+      "cargoType": "Cargo type",
+      "selectCargoType": "Select a cargo type",
+      "weight": "Weight (tonnes)",
+      "weightPlaceholder": "e.g. 5",
+      "vehicleTypeNeeded": "Vehicle type needed",
+      "anyVehicleType": "Any vehicle type",
+      "vehicleTypeHint": "Leave as “Any” if you’re flexible about the truck type.",
+      "price": "Expected price (₹)",
+      "pricePlaceholder": "e.g. 12000",
+      "pickupTime": "Pickup time",
+      "deadline": "Delivery deadline",
+      "special": "Special instructions",
+      "specialPlaceholder": "Optional — e.g. fragile, needs tarpaulin",
+      "submit": "Post load",
+      "submitting": "Posting...",
+      "remove": "Remove",
+      "noneYet": "No loads posted yet."
+    },
+    "findVehicles": {
+      "heading": "Find Vehicles",
+      "help": "Ranked backhaul vehicle matches for one of your open loads.",
+      "loadLabel": "Load",
+      "selectLoad": "Select a load",
+      "postLoadFirst": "Post a load first to find matching vehicles.",
+      "scoring": "Scoring vehicles..."
+    }
+  },
+  "catalog": {
+    "cargoTypes": {
+      "general": "General goods",
+      "perishable": "Perishable",
+      "liquid": "Liquid / bulk",
+      "fragile": "Fragile",
+      "heavy_machinery": "Heavy machinery",
+      "household_goods": "Household goods"
+    },
+    "vehicleTypes": {
+      "mini_truck": { "label": "Mini truck", "hint": "Small loads, city and short-haul runs." },
+      "open_truck": { "label": "Open truck", "hint": "General and heavy goods, no weather protection." },
+      "container_truck": { "label": "Container truck", "hint": "Sealed cargo, long-haul and household goods." },
+      "refrigerated_truck": { "label": "Refrigerated truck", "hint": "Perishables needing a cold chain." },
+      "tanker": { "label": "Tanker", "hint": "Liquid or bulk cargo." },
+      "trailer": { "label": "Trailer", "hint": "Heavy machinery and oversized loads." }
+    }
+  },
+  "charts": {
+    "requestStatus": {
+      "pendingApproval": "Pending Approval",
+      "active": "Active",
+      "completed": "Completed",
+      "rejectedCancelled": "Rejected / Cancelled"
+    }
+  },
+  "chain": {
+    "heading": "Chain this backhaul?",
+    "help": "Compare the best single direct backhaul against the best 2-leg chain of loads for this trip.",
+    "compareButton": "Compare direct vs. chain",
+    "comparing": "Comparing...",
+    "directOption": "Best direct backhaul",
+    "chainOption": "Best 2-leg chain",
+    "leg": "Leg {{n}}",
+    "totalProfit": "Total est. profit",
+    "estProfit": "Est. profit",
+    "winnerChain": "The 2-leg chain earns an estimated ₹{{amount}} more than the best direct backhaul.",
+    "winnerDirect": "The direct backhaul is the more profitable option here.",
+    "chainOnlyFound": "Only a 2-leg chain was found — no viable direct backhaul exists for this trip.",
+    "directOnlyFound": "Only a direct backhaul was found — no viable 2-leg chain exists for this trip.",
+    "noDirectFound": "No viable direct backhaul found.",
+    "noChainFound": "No viable 2-leg chain found.",
+    "noneFound": "No direct backhaul or chain could be found for this trip.",
+    "scopeNote": "This compares only single loads vs. 2-leg chains among a limited set of candidates — it is not a full route optimizer."
+  }
+}

@@ -1,0 +1,334 @@
+/* Premium application shell -- round 1 of the UI/UX rebuild.
+   A narrow, quiet, near-black sidebar (independent of the app's own
+   light/dark toggle, like a real product's chrome) with a single
+   indigo/violet active accent, and a light/dark-aware topbar + content
+   area using the new design tokens from index.css. Deliberately NOT the
+   generic "dark navy admin template" look: no gradients on every row, no
+   colorful badges, one quiet accent used sparingly. */
+
+.ds-shell {
+  --ds-sidebar-w: 232px;
+  --ds-sidebar-bg: #0E0F14;
+  --ds-sidebar-bg-2: #15161F;
+  --ds-sidebar-text: #A6A9BA;
+  --ds-sidebar-text-dim: #5E6175;
+  --ds-sidebar-active-bg: color-mix(in srgb, var(--primary) 20%, transparent);
+  min-height: 100vh;
+  background: var(--base);
+}
+
+.ds-backdrop {
+  display: none;
+}
+
+/* ---------- Sidebar ---------- */
+
+.ds-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--ds-sidebar-w);
+  background: linear-gradient(180deg, var(--ds-sidebar-bg), var(--ds-sidebar-bg-2));
+  color: var(--ds-sidebar-text);
+  display: flex;
+  flex-direction: column;
+  z-index: 40;
+  overflow-y: auto;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ds-sidebar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 18px 16px;
+}
+
+.ds-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ds-brand-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--primary-ink);
+  background: var(--primary);
+  flex-shrink: 0;
+}
+
+.ds-brand-name {
+  font-weight: 700;
+  font-size: 14.5px;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+
+.ds-nav {
+  flex: 1;
+  padding: 10px 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ds-nav-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ds-nav-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ds-sidebar-text-dim);
+  padding: 8px 10px 6px;
+}
+
+.ds-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--ds-sidebar-text);
+  padding: 9px 11px;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ds-nav-item svg {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.ds-nav-item:hover {
+  background: rgba(255, 255, 255, 0.045);
+  color: #fff;
+}
+
+.ds-nav-item-active {
+  background: var(--ds-sidebar-active-bg);
+  color: #fff;
+  font-weight: 600;
+}
+
+.ds-nav-item-active svg {
+  color: var(--primary);
+  opacity: 1;
+}
+
+.ds-nav-badge {
+  margin-left: auto;
+  font-size: 10.5px;
+  font-weight: 700;
+  background: var(--primary);
+  color: var(--primary-ink);
+  border-radius: 999px;
+  padding: 1px 7px;
+  min-width: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.ds-sidebar-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ds-sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.ds-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary-ink);
+  background: var(--primary);
+}
+
+.ds-sidebar-user-text {
+  min-width: 0;
+}
+
+.ds-sidebar-user-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ds-sidebar-user-sub {
+  font-size: 11px;
+  color: var(--ds-sidebar-text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ds-sidebar .ds-icon-btn {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--ds-sidebar-text);
+}
+
+.ds-sidebar .ds-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+}
+
+/* ---------- Main / topbar ---------- */
+
+.ds-main {
+  margin-left: var(--ds-sidebar-w);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1;
+  background: var(--base);
+}
+
+.ds-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 28px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+
+.ds-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.ds-page-title {
+  font-size: 16.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.ds-page-subtitle {
+  font-size: 12px;
+  color: var(--ink-muted);
+  margin-top: 1px;
+}
+
+.ds-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ds-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--base);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 7px 12px;
+  color: var(--ink-muted);
+}
+
+.ds-search-input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 13px;
+  color: var(--ink);
+  width: 140px;
+  font-family: inherit;
+}
+
+.ds-mobile-only {
+  display: none;
+}
+
+.ds-content {
+  padding: 26px 28px 52px;
+  flex: 1;
+  max-width: 1280px;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 920px) {
+  .ds-sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.4);
+  }
+
+  .ds-sidebar-open {
+    transform: translateX(0);
+  }
+
+  .ds-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 30;
+  }
+
+  .ds-main {
+    margin-left: 0;
+  }
+
+  .ds-mobile-only {
+    display: flex;
+  }
+
+  .ds-desktop-only {
+    display: none;
+  }
+
+  .ds-content {
+    padding: 18px 16px 40px;
+  }
+
+  .ds-topbar {
+    padding: 12px 16px;
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "numeric_features": [
+    "max_capacity_tonnes",
+    "cargo_weight_tonnes",
+    "expected_price",
+    "to_pickup_km",
+    "loaded_km",
+    "from_delivery_km",
+    "direct_km",
+    "total_km",
+    "detour_km",
+    "detour_ratio",
+    "capacity_utilization",
+    "slack_hours",
+    "lead_hours",
+    "price_per_tonne_km",
+    "rule_fuel_cost",
+    "rule_toll_cost",
+    "rule_other_cost",
+    "rule_operating_cost",
+    "rule_profit",
+    "rule_margin_pct"
+  ],
+  "categorical_features": [
+    "vehicle_type",
+    "required_vehicle_type",
+    "cargo_type",
+    "month",
+    "is_weekend"
+  ],
+  "notes": "month is the pickup month as a string '1'..'12'; is_weekend is the string 'True'/'False'."
+}

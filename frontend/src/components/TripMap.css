@@ -1,0 +1,78 @@
+/* TripMap.jsx -- route map embedded in a RequestsPanel card (Addendum 32).
+   Leaflet needs real, explicit pixel dimensions on its container at mount
+   time or it renders as a 1x1 blank tile -- set on .trip-map .leaflet-
+   container instead of relying only on the inline style passed to
+   MapContainer, so it still holds up if that prop is ever dropped. */
+
+.trip-map {
+  margin-top: 12px;
+}
+
+.trip-map .leaflet-container {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  font-family: inherit;
+}
+
+/* Pins are plain DivIcons (a colored dot + a small text pill), not image
+   markers -- Leaflet's default marker image path assumes a bundler setup
+   this Vite project doesn't have, so image markers silently 404 unless
+   patched. A dot avoids that whole class of bug and themes for free. */
+.trip-map-pin {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.trip-map-pin-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  flex-shrink: 0;
+}
+
+.trip-map-pin-label {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+
+.trip-map-footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.trip-map-badge {
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+
+.trip-map-badge-live {
+  color: #DC2626;
+  border-color: #DC2626;
+  background: color-mix(in srgb, #DC2626 10%, transparent);
+}
+
+.trip-map-hint {
+  font-size: 11.5px;
+  color: var(--muted);
+}

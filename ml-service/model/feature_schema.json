@@ -1,0 +1,33 @@
+{
+  "numeric_features": [
+    "max_capacity_tonnes",
+    "cargo_weight_tonnes",
+    "expected_price",
+    "to_pickup_km",
+    "loaded_km",
+    "from_delivery_km",
+    "direct_km",
+    "total_km",
+    "detour_km",
+    "detour_ratio",
+    "capacity_utilization",
+    "slack_hours",
+    "lead_hours",
+    "price_per_tonne_km",
+    "route_compatibility",
+    "timing_compatibility",
+    "cargo_vehicle_fit",
+    "detour_efficiency",
+    "profitability_score",
+    "reliability_score",
+    "has_rating"
+  ],
+  "categorical_features": [
+    "vehicle_type",
+    "required_vehicle_type",
+    "cargo_type",
+    "vehicle_type_matches_required"
+  ],
+  "owner_rating_default": 3.5,
+  "notes": "has_rating must be 1 if a real owner_rating_avg was supplied, 0 if defaulted to 3.5."
+}

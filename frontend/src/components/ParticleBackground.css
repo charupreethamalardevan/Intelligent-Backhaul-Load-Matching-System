@@ -1,0 +1,13 @@
+/* Full-viewport, fixed, and completely inert -- see ParticleBackground.jsx
+   for why every page that mounts this gives its real content an explicit
+   `position: relative; z-index: 1` (or higher) so it paints above this
+   canvas's z-index: 0 regardless of where in the DOM this is inserted. */
+.particle-bg {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  display: block;
+}

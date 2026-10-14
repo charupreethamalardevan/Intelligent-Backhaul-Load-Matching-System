@@ -1,0 +1,416 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================================================================
+   IBLMS DESIGN SYSTEM -- premium rebuild, round 1 (design system + shell +
+   landing hero). Replaces the old flat "Forest & Gray" green theme with a
+   restrained charcoal / indigo-violet / teal palette, per the product's
+   own brief: "premium logistics control center," not a generic bright
+   SaaS template and not a glowing AI-dashboard gradient.
+
+   IMPORTANT -- backward compatibility by design: every dashboard/component
+   NOT touched this round (FleetDashboard, PosterDashboard, AdminPage,
+   RequestsPanel, MatchResults, TripMap, ChainComparison, InviteManager,
+   LocationSelect, RoleSignupForm, StatCard, MiniCharts, ActivityList,
+   SignupRoleSelect, widgets.css) still reads the OLD variable names
+   (--bg/--text/--muted/--card/--border/--primary/--primary-text/
+   --accent-soft). Rather than touch every one of those files in this
+   single round, the old names are kept as ALIASES onto the new semantic
+   tokens below -- so the entire app re-themes to the new palette in one
+   shot, with zero risk of breaking a file this round never opened. Future
+   rounds can migrate those files to the new token names directly; nothing
+   forces that yet. ========================================================= */
+
+:root {
+  /* ---- new semantic tokens ---- */
+  --base: #FAF9F5;
+  --surface: #FFFFFF;
+  --surface-2: #F2F0E9;
+  --line: #E6E2D8;
+  --ink: #16171C;
+  --ink-muted: #5B5E6B;
+  --ink-faint: #9093A0;
+
+  --primary: #4F46E5;
+  --primary-soft: #ECEBFC;
+  --primary-ink: #FFFFFF;
+
+  --secondary: #0E9488;
+  --secondary-soft: #E2F5F2;
+
+  --accent: #C2622A;
+  --accent-soft: #FBEADC;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+
+  --shadow-card: 0 1px 2px rgba(20, 20, 30, 0.04), 0 1px 1px rgba(20, 20, 30, 0.03);
+  --shadow-elevated: 0 16px 40px rgba(20, 20, 30, 0.14);
+
+  /* ---- legacy aliases (read by files not touched this round) ---- */
+  --bg: var(--base);
+  --text: var(--ink);
+  --muted: var(--ink-muted);
+  --card: var(--surface);
+  --border: var(--line);
+  --primary-text: var(--primary-ink);
+}
+
+:root[data-theme='dark'] {
+  --base: #0B0C10;
+  --surface: #14151C;
+  --surface-2: #1B1D26;
+  --line: #272A35;
+  --ink: #EDEEF3;
+  --ink-muted: #9B9EAE;
+  --ink-faint: #6B6E7D;
+
+  --primary: #9690FA;
+  --primary-soft: rgba(150, 144, 250, 0.16);
+  --primary-ink: #0B0C10;
+
+  --secondary: #46D6C6;
+  --secondary-soft: rgba(70, 214, 198, 0.14);
+
+  --accent: #E39660;
+  --accent-soft: rgba(227, 150, 96, 0.15);
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(0, 0, 0, 0.24);
+  --shadow-elevated: 0 20px 48px rgba(0, 0, 0, 0.5);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  background: var(--base);
+  color: var(--ink);
+  transition: background 0.2s, color 0.2s;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 28px 20px 60px;
+  position: relative;
+  z-index: 1;
+}
+
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 14px 20px;
+  margin-bottom: 22px;
+  box-shadow: var(--shadow-card);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+
+.brand .mark {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  color: var(--primary-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: var(--primary);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--primary) 40%, transparent);
+}
+
+.hero {
+  margin-bottom: 20px;
+}
+
+.hero .kicker {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+}
+
+.hero h1 {
+  margin: 0 0 4px;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.hero p {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 14px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  box-shadow: var(--shadow-card);
+}
+
+.card h3 {
+  margin: 0 0 12px;
+  font-size: 14.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.btn {
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 9px 16px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  font-family: inherit;
+}
+
+.btn-primary {
+  color: var(--primary-ink);
+  background: var(--primary);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1.5px solid var(--line);
+  color: var(--ink);
+}
+
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--line);
+  background: var(--base);
+  color: var(--ink);
+  font-size: 13.5px;
+  font-family: inherit;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+/* ---------- Form field clarity ---------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+.field-hint {
+  font-size: 11.5px;
+  color: var(--ink-muted);
+  margin-top: -1px;
+}
+
+.form-help {
+  font-size: 12.5px;
+  color: var(--ink-muted);
+  margin: -4px 0 12px;
+}
+
+.chip-check-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  font-size: 12.5px;
+  cursor: pointer;
+  background: var(--base);
+  color: var(--ink);
+  user-select: none;
+}
+
+.chip-check input {
+  accent-color: var(--primary);
+  margin: 0;
+}
+
+.chip-check.checked {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  box-shadow: var(--shadow-card);
+}
+
+.stat-card .s-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stat-card .s-value {
+  font-size: 23px;
+  font-weight: 700;
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.stat-card .s-sub {
+  font-size: 12px;
+  color: var(--primary);
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+/* ---------- Global interaction polish ---------- */
+
+.btn {
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn-primary:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--primary) 42%, transparent);
+}
+
+.btn-outline:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+  transform: none;
+}
+
+.card {
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.input {
+  transition: border-color 0.12s ease;
+}
+
+a {
+  color: var(--primary);
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.lang-switch {
+  height: 34px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lang-switch:hover {
+  border-color: var(--primary);
+}
+
+.lang-switch-dark {
+  height: 36px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lang-switch-dark option {
+  color: #111;
+}
+
+.ds-icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.ds-icon-btn:hover {
+  background: var(--primary-soft);
+  color: var(--primary);
+}

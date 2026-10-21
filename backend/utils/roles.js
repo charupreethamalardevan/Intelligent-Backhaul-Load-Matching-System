@@ -21,13 +21,17 @@ const SUBTYPES = {
     label: 'Fleet Owner',
     fields: ['name', 'company_name'],
     docs: ['ownership_doc'],
-    requiresApproval: true,
+    // Was true -- admin approval is no longer required before login. The
+    // document is still uploaded and still reviewable in the admin
+    // Documents tab, it just no longer blocks the account from logging in.
+    requiresApproval: false,
   },
   owner_driver: {
     label: 'Individual Owner',
     fields: ['name'],
     docs: ['license_doc'],
-    requiresApproval: true,
+    // Was true -- same change as fleet_owner above.
+    requiresApproval: false,
   },
   driver: {
     label: 'Fleet Driver',

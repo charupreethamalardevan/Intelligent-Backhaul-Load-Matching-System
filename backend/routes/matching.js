@@ -2,6 +2,7 @@ const express = require('express');
 
 const Route = require('../models/Route');
 const Load = require('../models/Load');
+const User = require('../models/User');
 const { requireAuth } = require('../middleware/auth');
 const { scoreMatch } = require('../services/matching');
 const { findBestChainForTrip } = require('../services/chainFinder');
@@ -54,9 +55,19 @@ router.get('/for-trip/:tripId', async (req, res) => {
     const vehicle = route.truckId;
     const loads = await Load.find({ status: 'open' });
 
+    // Reliability factor (SRS Section 6) -- this truck owner's cached
+    // average rating (Rating.js/routes/ratings.js recompute and cache it
+    // onto users.ratingAvg whenever a completed booking is rated). One
+    // lookup covers every candidate below, since they all share this same
+    // truck/owner. null (no ratings yet) is handled by scoreReliability()
+    // itself, which falls back to a neutral score rather than fabricating
+    // a good or bad track record.
+    const ownerUser = await User.findById(route.truckOwnerId).select('ratingAvg');
+    const ownerRatingAvg = ownerUser?.ratingAvg ?? null;
+
     const matches = [];
     for (const load of loads) {
-      const result = scoreMatch({ vehicle, trip: route, load });
+      const result = scoreMatch({ vehicle, trip: route, load, ownerRatingAvg });
       if (result.eligible) {
         matches.push({ load, ...result });
       }
@@ -65,7 +76,7 @@ router.get('/for-trip/:tripId', async (req, res) => {
 
     const top = matches.slice(0, MAX_RESULTS);
     await Promise.all([
-      attachMlCompatibility(top, (m) => ({ vehicle, trip: route, load: m.load })),
+      attachMlCompatibility(top, (m) => ({ vehicle, trip: route, load: m.load, ownerRatingAvg })),
       attachMlProfitability(top, (m) => ({ vehicle, trip: route, load: m.load })),
     ]);
 
@@ -110,20 +121,29 @@ router.get('/for-load/:loadId', async (req, res) => {
 
     const routes = await Route.find({ status: 'available' }).populate('truckId');
 
+    // Reliability factor (SRS Section 6), mirror of /for-trip above -- here
+    // the candidates span many different truck owners, so batch-fetch
+    // every distinct owner's cached ratingAvg in one query instead of one
+    // per candidate.
+    const ownerIds = [...new Set(routes.map((r) => String(r.truckOwnerId)).filter(Boolean))];
+    const ownerUsers = await User.find({ _id: { $in: ownerIds } }).select('ratingAvg');
+    const ratingByOwnerId = new Map(ownerUsers.map((u) => [String(u._id), u.ratingAvg ?? null]));
+
     const matches = [];
     for (const route of routes) {
       const vehicle = route.truckId;
       if (!vehicle || vehicle.status !== 'active') continue;
-      const result = scoreMatch({ vehicle, trip: route, load });
+      const ownerRatingAvg = ratingByOwnerId.get(String(route.truckOwnerId)) ?? null;
+      const result = scoreMatch({ vehicle, trip: route, load, ownerRatingAvg });
       if (result.eligible) {
-        matches.push({ trip: route, vehicle, ...result });
+        matches.push({ trip: route, vehicle, ownerRatingAvg, ...result });
       }
     }
     matches.sort((a, b) => b.matchScore - a.matchScore);
 
     const top = matches.slice(0, MAX_RESULTS);
     await Promise.all([
-      attachMlCompatibility(top, (m) => ({ vehicle: m.vehicle, trip: m.trip, load })),
+      attachMlCompatibility(top, (m) => ({ vehicle: m.vehicle, trip: m.trip, load, ownerRatingAvg: m.ownerRatingAvg })),
       attachMlProfitability(top, (m) => ({ vehicle: m.vehicle, trip: m.trip, load })),
     ]);
 

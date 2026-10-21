@@ -31,7 +31,13 @@ services:
       - key: ML_SERVICE_URL
         sync: false # set this to the iblms-ml-service URL below once it's deployed
       - key: ML_SERVICE_TIMEOUT_MS
-        value: 1500
+        # Was 1500 (1.5s) -- too short to ever catch the ml-service waking
+        # up from Render's free-tier 15-min sleep (~30-60s cold start), so
+        # every ML feature (compatibility score, demand forecast, empty-run
+        # risk) silently fell back to "unavailable" on a cold visit. 8s is
+        # still fast when the service is already warm, and gives a cold
+        # request a real chance without hanging the whole page for a minute.
+        value: 8000
 
   - type: web
     name: iblms-ml-service
@@ -40,3 +46,13 @@ services:
     rootDir: ml-service
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn --bind 0.0.0.0:$PORT app:app
+    envVars:
+      - key: PYTHON_VERSION
+        # pandas==2.2.2/numpy==1.26.4 in requirements.txt have no prebuilt
+        # wheel for Render's current default Python, which made the very
+        # first Blueprint deploy fail on "metadata-generation-failed"
+        # building pandas from source. Pinning to 3.10 (what this was
+        # trained/tested with) fixes it. If you ever recreate this
+        # Blueprint from scratch, this saves you from hitting that same
+        # build failure and having to set it manually in the dashboard.
+        value: 3.10.12

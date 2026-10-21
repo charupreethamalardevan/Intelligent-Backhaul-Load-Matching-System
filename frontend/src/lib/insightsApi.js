@@ -18,3 +18,11 @@ export const demandForecast = (origin, destination) =>
 // emptyRunRiskPct/riskLevel/modelVersion are null for a trip the ML
 // microservice couldn't score.
 export const emptyRunRisk = () => apiFetch('/insights/empty-run-risk');
+
+// warmMl: fire this on mount of any ML-dependent screen to nudge a
+// sleeping ml-service awake as early as possible (see
+// backend/routes/insights.js). Deliberately fire-and-forget -- callers
+// should not await it meaningfully or surface its errors; it exists purely
+// to start Render's free-tier cold-start clock a little earlier than the
+// user's actual "Forecast demand" click would.
+export const warmMl = () => apiFetch('/insights/warm-ml');

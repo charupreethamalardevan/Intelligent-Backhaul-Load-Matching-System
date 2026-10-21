@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { listLoads, createLoad, deleteLoad } from '../lib/loadApi.js';
 import { VEHICLE_TYPES } from '../lib/vehicleApi.js';
 import { matchesForLoad } from '../lib/matchingApi.js';
+import { warmMl } from '../lib/insightsApi.js';
 import { createRequest, listRequests, STATUS_LABELS } from '../lib/requestApi.js';
 import { timeAgo, bucketByDay } from '../lib/time.js';
 import MatchResults from '../components/MatchResults.jsx';
@@ -257,6 +258,11 @@ export default function PosterDashboard({ user, onLogout }) {
   }
 
   useEffect(() => {
+    // Fire-and-forget: nudge a sleeping ml-service awake (Render free-tier
+    // cold start) as soon as this dashboard loads, so by the time the user
+    // asks to see matches for a load, a cold instance has had a head
+    // start instead of none. See backend/routes/insights.js's /warm-ml.
+    warmMl().catch(() => {});
     reloadLoads();
     reloadRequests();
   }, []);

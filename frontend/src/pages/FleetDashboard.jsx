@@ -5,7 +5,7 @@ import { listTrips, createTrip, deleteTrip } from '../lib/tripApi.js';
 import { matchesForTrip } from '../lib/matchingApi.js';
 import { createRequest, listRequests, updateRequestStatus, STATUS_LABELS } from '../lib/requestApi.js';
 import { loadsNear } from '../lib/loadApi.js';
-import { demandForecast, emptyRunRisk } from '../lib/insightsApi.js';
+import { demandForecast, emptyRunRisk, warmMl } from '../lib/insightsApi.js';
 import { timeAgo } from '../lib/time.js';
 import MatchResults from '../components/MatchResults.jsx';
 import ChainComparison from '../components/ChainComparison.jsx';
@@ -781,6 +781,10 @@ function RouteInsightsTab() {
   const [riskLoading, setRiskLoading] = useState(true);
 
   useEffect(() => {
+    // Also ping here directly (cheap, idempotent) in case this tab is
+    // reached long enough after the dashboard's own mount-time ping that
+    // the ml-service could plausibly have gone back to sleep in between.
+    warmMl().catch(() => {});
     emptyRunRisk()
       .then((data) => setRiskTrips(data.trips))
       .catch((err) => setRiskError(err.message))
@@ -1041,6 +1045,14 @@ export default function FleetDashboard({ user, onLogout }) {
   }
 
   useEffect(() => {
+    // Fire-and-forget: nudge a sleeping ml-service awake (Render free-tier
+    // cold start) the moment the dashboard itself loads, not only once the
+    // user opens Route Insights -- by the time they get to "Forecast
+    // demand" a cold instance has had a real head start instead of none.
+    // See backend/routes/insights.js's /warm-ml and services/mlClient.js's
+    // pingMlService() for why: no timeout value fixes a true cold start,
+    // only starting it earlier does.
+    warmMl().catch(() => {});
     reloadVehicles();
     reloadTrips();
     reloadDrivers();

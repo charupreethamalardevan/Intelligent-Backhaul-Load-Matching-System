@@ -5,7 +5,7 @@ const Route = require('../models/Route');
 const DemandForecast = require('../models/DemandForecast');
 const { requireAuth } = require('../middleware/auth');
 const { isKnownCity, cityDistanceKm } = require('../utils/distance');
-const { getDemandForecast, getEmptyRunRiskBatch } = require('../services/mlClient');
+const { getDemandForecast, getEmptyRunRiskBatch, pingMlService } = require('../services/mlClient');
 const { scopeOwnerId } = require('./trucks');
 
 // "Route Insights" -- the UI home for ML Modules 3 (Demand Forecasting)
@@ -22,6 +22,18 @@ router.use(requireAuth);
 const NEARBY_RADIUS_KM = 150;
 const RECENT_WINDOW_14D_MS = 14 * 24 * 60 * 60 * 1000;
 const RECENT_WINDOW_30D_MS = 30 * 24 * 60 * 60 * 1000;
+
+// GET /api/insights/warm-ml -- not a real ML feature. The Route Insights
+// panel (and the dashboard shell generally) calls this the instant it
+// mounts, fire-and-forget, to nudge a sleeping ml-service (Render
+// free-tier, ~30-60s cold start) awake as early as possible -- ideally
+// before the user has even picked a route and clicked "Forecast demand".
+// Responds immediately without waiting on the ml-service, so it can only
+// ever help and can never fail or block the request that calls it.
+router.get('/warm-ml', (req, res) => {
+  pingMlService();
+  res.json({ ok: true });
+});
 
 // GET /api/insights/demand-forecast?origin=&destination= -- ML Module 3.
 router.get('/demand-forecast', async (req, res) => {

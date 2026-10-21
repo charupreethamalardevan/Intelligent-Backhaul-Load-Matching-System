@@ -215,8 +215,25 @@ async function getEmptyRunRiskBatch(items) {
   }
 }
 
+
+// Fire-and-forget warm-up ping (GET /api/insights/warm-ml calls this). The
+// real problem behind "the demand forecasting model is unavailable right
+// now" on a cold visit isn't ML_SERVICE_TIMEOUT_MS being too short -- it's
+// that Render's free-tier cold start (30-60s) is longer than any timeout
+// that wouldn't also hang the user's own request for a minute. The only
+// real lever a single request has is to start that wake-up clock as early
+// as possible, so this is called the instant an ML-dependent panel mounts
+// on the frontend, well before the user has picked a route/clicked
+// "Forecast demand". Deliberately not awaited by its caller, and any
+// error here is swallowed -- this must never be able to fail or slow down
+// a real request.
+function pingMlService() {
+  fetch(`${ML_SERVICE_URL}/`).catch(() => {});
+}
+
 module.exports = {
   getMlCompatibility, getMlCompatibilityBatch,
   getMlProfitability, getMlProfitabilityBatch,
   getDemandForecast, getEmptyRunRiskBatch,
+  pingMlService,
 };

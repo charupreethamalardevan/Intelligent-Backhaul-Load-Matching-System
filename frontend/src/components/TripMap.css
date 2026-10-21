@@ -76,3 +76,129 @@
   font-size: 11.5px;
   color: var(--muted);
 }
+
+/* RoutePreviewMap's click-to-activate affordance on compact (non-
+   interactive) previews -- pointer-events: none so the click always
+   lands on the wrapping div's onClick (which flips it interactive)
+   rather than being swallowed by the badge itself. */
+.trip-map-tap-hint {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 500;
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.62);
+  padding: 3px 9px;
+  border-radius: 999px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* TripMapModal.jsx -- the "Start Navigation" popup. Same backdrop/
+   centered-dialog idea as SidePanel.jsx's .dv-side-* classes (defined in
+   dataViews.css), kept as its own rules here since TripMap.css doesn't
+   import that file and a map dialog wants real width/height to zoom
+   into, not a 420px side panel. z-index sits above SidePanel's (61) in
+   the unlikely case both are ever open at once. */
+.trip-nav-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 14, 0.55);
+  z-index: 80;
+  animation: trip-nav-fade-in 0.15s ease;
+}
+
+.trip-nav-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(960px, 94vw);
+  height: min(80vh, 720px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elevated);
+  z-index: 81;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: trip-nav-pop-in 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.trip-nav-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.trip-nav-head h2 {
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: 700;
+}
+
+.trip-nav-sub {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.trip-nav-body {
+  flex: 1;
+  min-height: 0;
+  padding: 14px;
+  display: flex;
+}
+
+/* Stretches TripMap.jsx's own markup (the leaflet map + its footer) to
+   fill this body region, instead of the fixed 260px height it uses when
+   embedded inline -- min-height: 0 at every level here is what lets a
+   flex child actually shrink/grow to fill its parent instead of forcing
+   the parent taller (the classic flexbox-height-ignored bug). */
+.trip-nav-body .trip-map {
+  flex: 1;
+  min-height: 0;
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.trip-nav-body .trip-map .leaflet-container {
+  flex: 1;
+  min-height: 0;
+}
+
+@keyframes trip-nav-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes trip-nav-pop-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@media (max-width: 640px) {
+  .trip-nav-modal {
+    width: 100vw;
+    height: 100vh;
+    top: 0;
+    left: 0;
+    transform: none;
+    border-radius: 0;
+  }
+
+  @keyframes trip-nav-pop-in {
+    from { opacity: 0; transform: scale(0.98); }
+    to { opacity: 1; transform: scale(1); }
+  }
+}

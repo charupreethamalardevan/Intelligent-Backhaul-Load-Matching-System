@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { VEHICLE_TYPES } = require('./Vehicle');
+const { VEHICLE_TYPES } = require('./Truck');
 
 // A Load is a shipper's transportation requirement (SRS Section 11).
 const loadSchema = new mongoose.Schema(

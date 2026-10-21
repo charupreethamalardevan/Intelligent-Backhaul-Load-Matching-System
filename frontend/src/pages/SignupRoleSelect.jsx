@@ -1,160 +1,101 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import RoleSignupForm from '../components/RoleSignupForm.jsx';
-import ParticleBackground from '../components/ParticleBackground.jsx';
 import SiteNav from '../components/SiteNav.jsx';
+import {
+  IconArrowLeft,
+  IconArrowRight,
+  IconBox,
+  IconRoute,
+  IconBuilding,
+  IconUser,
+  IconUsers,
+  IconTruck,
+  IconKey,
+} from '../components/icons.jsx';
+import ParticleBackground, { PARTICLE_COLORS_RESTRAINED } from '../components/ParticleBackground.jsx';
 import './SignupRoleSelect.css';
+import './AuthShared.css';
 
-// Two parent categories, each drilling into its own sub-roles. A coverflow-
-// style carousel: every card is always rendered and visible at once, fanned
-// out in a shallow arc around the active one, auto-advancing through them
-// on a timer. Click any card (not just the front one) to choose it straight
-// away; use the arrows/dots to browse without choosing. The final role
-// cards show a REAL signup form (RoleSignupForm.jsx), not a preview.
-//
-// Earlier version: a true 360deg 3D ring with `backface-visibility: hidden`
-// on each card. That meant only the single card currently facing the camera
-// was ever visible -- every other card sat invisibly behind it -- and the
-// slow auto-spin took ~12s to swing the next one into view with zero hint
-// it existed. Replaced entirely with the coverflow layout below, where
-// nothing is ever hidden: every card in the set has a position on screen
-// at all times, just pushed back/scaled down the further it is from front.
+// Premium redesign (per the pasted "PIKA-INSPIRED AUTHENTICATION REDESIGN"
+// brief, calibrated against pika.art): icons are now real lucide
+// components instead of 2-letter monogram strings, and the plain grid
+// below is replaced by AuthShared.css's `.ac-path-*` pathway-card system.
+// The page canvas uses `.auth-canvas` (AuthShared.css), which follows the
+// site's real light/dark theme toggle -- see that file's header comment
+// for why (this replaced an earlier always-dark version per user feedback).
+// Role ids, labels, and hints are character-for-character the same as
+// before -- ROLE_FORMS in lib/roleForms.js still keys off these exact
+// ids, so signup semantics and click behavior are unchanged.
 const LEVEL1 = [
-  { id: 'post', icon: 'PL', label: 'Post a Load', hint: 'Business or individual load posting' },
-  { id: 'move', icon: 'ML', label: 'Move a Load', hint: 'Fleet owner, individual owner, or driver' },
+  { id: 'post', icon: IconBox, label: 'Post a Load', hint: 'Business or individual load posting' },
+  { id: 'move', icon: IconRoute, label: 'Move a Load', hint: 'Fleet owner, individual owner, or driver' },
 ];
 
 const CHILDREN = {
   post: [
-    { id: 'business', icon: 'BP', label: 'Business Poster', hint: 'Company posting loads regularly' },
-    { id: 'individual', icon: 'IP', label: 'Individual Poster', hint: 'One-off / personal load posting' },
+    { id: 'business', icon: IconBuilding, label: 'Business Poster', hint: 'Company posting loads regularly' },
+    { id: 'individual', icon: IconUser, label: 'Individual Poster', hint: 'One-off / personal load posting' },
   ],
   move: [
-    { id: 'fleetOwner', icon: 'FO', label: 'Fleet Owner', hint: 'Owns multiple vehicles & drivers' },
-    { id: 'individualOwner', icon: 'IO', label: 'Individual Owner', hint: 'Owns & drives one vehicle' },
-    { id: 'fleetDriver', icon: 'FD', label: 'Fleet Driver', hint: 'Drives for a Fleet Owner, via invite code' },
+    { id: 'fleetOwner', icon: IconUsers, label: 'Fleet Owner', hint: 'Owns multiple vehicles & drivers' },
+    { id: 'individualOwner', icon: IconTruck, label: 'Individual Owner', hint: 'Owns & drives one vehicle' },
+    { id: 'fleetDriver', icon: IconKey, label: 'Fleet Driver', hint: 'Drives for a Fleet Owner, via invite code' },
   ],
 };
 
-const SPACING = 210; // px, horizontal distance between neighboring cards
-const DEPTH_STEP = 130; // px, how far back each step away from front sits
-const MAX_TRACK_TILT = 9; // deg, subtle cursor-follow tilt on the whole fan
-const SNAP_MS = 480; // matches the CSS transition duration below
-const AUTOPLAY_MS = 3200;
+const STEP_LABELS = ['Category', 'Type', 'Details'];
 
-// Shortest signed distance from `active` to `index` around a circle of
-// `total` positions -- e.g. with 3 items, index 2 sits at offset -1 from
-// active index 0 (wraps the "short way"), not +2.
-function circularOffset(index, active, total) {
-  let diff = index - active;
-  if (diff > total / 2) diff -= total;
-  if (diff < -total / 2) diff += total;
-  return diff;
+// Compact 3-stage indicator -- derived from the real navigation state
+// already in this component (historyStack / selectedRoleId) below, not a
+// fabricated multi-page wizard. Every signup path in this app is exactly
+// Category -> Type -> Details, so three stages always covers it.
+function StepIndicator({ step }) {
+  return (
+    <div className="ac-steps">
+      {STEP_LABELS.map((label, i) => {
+        const n = i + 1;
+        const cls = n < step ? 'is-done' : n === step ? 'is-active' : '';
+        return (
+          <Fragment key={label}>
+            <span className={`ac-step ${cls}`}>
+              <span className="ac-step-dot" />
+              {label}
+            </span>
+            {i < STEP_LABELS.length - 1 && <span className="ac-step-sep" />}
+          </Fragment>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function SignupRoleSelect() {
   const { t } = useTranslation();
-  const stageRef = useRef(null);
-  const trackRef = useRef(null);
 
   const [items, setItems] = useState(LEVEL1);
-  const [title, setTitle] = useState('Choose how you’ll use IBLMS');
-  const [sub, setSub] = useState('Cards rotate on their own -- use the arrows or dots, or click any card to choose it.');
+  const [title, setTitle] = useState("Choose how you'll use IBLMS");
+  const [sub, setSub] = useState('Pick the option that matches what you need.');
   const [historyStack, setHistoryStack] = useState([]);
   const [selectedRoleId, setSelectedRoleId] = useState(null);
-  const [showBack, setShowBack] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
 
-  const activeIndexRef = useRef(0);
-  const lastInteractionRef = useRef(0);
-
-  useEffect(() => {
-    activeIndexRef.current = activeIndex;
-  }, [activeIndex]);
-
-  // Subtle cursor-follow tilt on the whole fan (not per-card), purely
-  // cosmetic, capped small enough it can never approach a 90deg flip.
-  useEffect(() => {
-    const tilt = { tx: 0, ty: 0, x: 0, y: 0 };
-    function onMove(e) {
-      const stage = stageRef.current;
-      if (!stage) return;
-      const rect = stage.getBoundingClientRect();
-      tilt.tx = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
-      tilt.ty = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
-    }
-    window.addEventListener('pointermove', onMove);
-
-    let rafId;
-    function frame() {
-      tilt.x += (tilt.tx - tilt.x) * 0.06;
-      tilt.y += (tilt.ty - tilt.y) * 0.06;
-      if (trackRef.current) {
-        trackRef.current.style.transform =
-          `rotateX(${(-tilt.y * MAX_TRACK_TILT * 0.6).toFixed(2)}deg) rotateY(${(tilt.x * MAX_TRACK_TILT).toFixed(2)}deg)`;
-      }
-      rafId = requestAnimationFrame(frame);
-    }
-    rafId = requestAnimationFrame(frame);
-
-    return () => {
-      window.removeEventListener('pointermove', onMove);
-      cancelAnimationFrame(rafId);
-    };
-  }, []);
-
-  // Auto-advance one card at a time, circularly. Pauses for a bit after any
-  // manual interaction (arrow/dot/card click) so it doesn't fight the user.
-  useEffect(() => {
-    if (items.length <= 1 || selectedRoleId) return undefined;
-    const id = setInterval(() => {
-      if (Date.now() - lastInteractionRef.current < AUTOPLAY_MS) return;
-      const next = (activeIndexRef.current + 1) % items.length;
-      activeIndexRef.current = next;
-      setActiveIndex(next);
-    }, AUTOPLAY_MS);
-    return () => clearInterval(id);
-  }, [items, selectedRoleId]);
-
-  function goToIndex(index) {
-    lastInteractionRef.current = Date.now();
-    activeIndexRef.current = index;
-    setActiveIndex(index);
-  }
-
-  function navigate(direction) {
-    goToIndex((activeIndex + direction + items.length) % items.length);
-  }
-
-  function chooseIndex(index) {
-    lastInteractionRef.current = Date.now();
-    activeIndexRef.current = index;
-    setActiveIndex(index);
-    window.setTimeout(() => handleChoice(items[index]), SNAP_MS);
-  }
-
-  function handleChoice(it) {
+  function choose(it) {
     if (CHILDREN[it.id]) {
       setHistoryStack((h) => [...h, { items, title, sub }]);
       setItems(CHILDREN[it.id]);
       setTitle(`${it.label} — choose your role`);
-      setSub('Cards rotate on their own -- use the arrows or dots, or click any card to choose it.');
-      setSelectedRoleId(null);
-      activeIndexRef.current = 0;
-      setActiveIndex(0);
-      setShowBack(true);
+      setSub('Pick the option that matches what you need.');
     } else {
       setSelectedRoleId(it.id);
       setTitle(it.label);
       setSub('Fill in your details to create your account.');
-      setShowBack(true);
     }
   }
 
   function goBack() {
     if (selectedRoleId) {
       setSelectedRoleId(null);
-      setSub('Cards rotate on their own -- use the arrows or dots, or click any card to choose it.');
+      setSub('Pick the option that matches what you need.');
       return;
     }
     if (historyStack.length === 0) return;
@@ -162,101 +103,77 @@ export default function SignupRoleSelect() {
     setItems(prev.items);
     setTitle(prev.title);
     setSub(prev.sub);
-    activeIndexRef.current = 0;
-    setActiveIndex(0);
-    const next = historyStack.slice(0, -1);
-    setHistoryStack(next);
-    if (next.length === 0) setShowBack(false);
+    setHistoryStack(historyStack.slice(0, -1));
   }
 
+  const showBack = selectedRoleId || historyStack.length > 0;
+  // Step 1 = category (post vs move), step 2 = subtype list, step 3 =
+  // the leaf registration form. Derived purely from existing state above.
+  const step = selectedRoleId ? 3 : historyStack.length === 0 ? 1 : 2;
+
   return (
-    <div className="role-select-page">
-      <ParticleBackground />
-      <div style={{ width: '100%', maxWidth: 1140, margin: '0 auto', padding: '20px 20px 0', position: 'relative', zIndex: 2, alignSelf: 'stretch' }}>
-        <SiteNav activePage="signup" />
-      </div>
-      <div className="heading">
-        <div className="kicker">{t('nav.signup')}</div>
-        <h1>{title}</h1>
-        <p>{sub}</p>
-      </div>
+    <div className="role-select-page auth-canvas">
+      <ParticleBackground confined count={52} colors={PARTICLE_COLORS_RESTRAINED} />
+      <SiteNav activePage="signup" />
 
-      {showBack && (
-        <button className="back-btn" onClick={goBack}>
-          &larr; Back
-        </button>
-      )}
-
-      {!selectedRoleId && (
-        <div className="stage" ref={stageRef}>
-          {items.length > 1 && (
-            <button
-              type="button"
-              className="nav-arrow nav-arrow-left"
-              onClick={() => navigate(-1)}
-              aria-label="Show previous option"
-            >
-              &#8249;
+      {selectedRoleId ? (
+        <div className="rs-split">
+          <div className="rs-stage">
+            <ParticleBackground confined count={34} colors={PARTICLE_COLORS_RESTRAINED} />
+            <StepIndicator step={step} />
+            <div className="ac-eyebrow">{t('nav.signup')}</div>
+            <h1 className="rs-stage-headline ac-enter">{title}</h1>
+            <p className="rs-stage-copy ac-enter ac-enter-d1">{sub}</p>
+          </div>
+          <div className="rs-form-col">
+            <button type="button" className="rs-back-btn" onClick={goBack}>
+              <IconArrowLeft size={14} /> Back
+            </button>
+            <div className="rs-panel ac-enter">
+              <div className="rs-panel-kicker">Create your account</div>
+              <RoleSignupForm roleId={selectedRoleId} />
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="rs-body">
+          {showBack && (
+            <button type="button" className="ac-back-btn" onClick={goBack}>
+              <IconArrowLeft size={14} /> Back
             </button>
           )}
-          <div className="track" ref={trackRef}>
+
+          <div className="rs-heading ac-enter">
+            <StepIndicator step={step} />
+            <div className="ac-eyebrow">{t('nav.signup')}</div>
+            <h1 className="ac-h1">{title}</h1>
+            <p className="ac-sub">{sub}</p>
+          </div>
+
+          <div className="ac-path-grid" data-count={items.length}>
             {items.map((it, i) => {
-              const offset = circularOffset(i, activeIndex, items.length);
-              const abs = Math.abs(offset);
-              const isFront = offset === 0;
-              const style = {
-                transform: `translate(-50%, -50%) translateX(${offset * SPACING}px) translateZ(${-abs * DEPTH_STEP}px) rotateY(${offset * -22}deg) scale(${Math.max(0.72, 1 - abs * 0.14)})`,
-                opacity: abs > 2 ? 0 : Math.max(0.4, 1 - abs * 0.28),
-                zIndex: 100 - abs,
-                pointerEvents: abs > 2 ? 'none' : 'auto',
-              };
+              const Icon = it.icon;
               return (
-                <div
+                <button
+                  type="button"
                   key={it.id}
-                  className={`card${isFront ? ' front' : ''}`}
-                  style={style}
-                  onClick={() => chooseIndex(i)}
+                  className={`ac-path-card ac-enter ac-enter-d${Math.min(i + 1, 3)}`}
+                  onClick={() => choose(it)}
                 >
-                  <div className="ic">{it.icon}</div>
-                  <div className="lbl">{it.label}</div>
-                  <div className="hint">{it.hint}</div>
-                </div>
+                  <span className="ac-path-icon">
+                    <Icon size={24} />
+                  </span>
+                  <span className="ac-path-body">
+                    <span className="ac-path-label">{it.label}</span>
+                    <span className="ac-path-hint">{it.hint}</span>
+                  </span>
+                  <span className="ac-path-arrow">
+                    Continue <IconArrowRight size={14} />
+                  </span>
+                </button>
               );
             })}
           </div>
-          {items.length > 1 && (
-            <button
-              type="button"
-              className="nav-arrow nav-arrow-right"
-              onClick={() => navigate(1)}
-              aria-label="Show next option"
-            >
-              &#8250;
-            </button>
-          )}
-        </div>
-      )}
-
-      {!selectedRoleId && items.length > 1 && (
-        <div className="dots" role="tablist" aria-label="Role options">
-          {items.map((it, i) => (
-            <button
-              key={it.id}
-              type="button"
-              role="tab"
-              aria-selected={i === activeIndex}
-              aria-label={it.label}
-              className={`dot${i === activeIndex ? ' active' : ''}`}
-              onClick={() => goToIndex(i)}
-            />
-          ))}
-        </div>
-      )}
-
-      {selectedRoleId && (
-        <div className="panel">
-          <div className="role-kicker">Create your account</div>
-          <RoleSignupForm roleId={selectedRoleId} />
         </div>
       )}
     </div>

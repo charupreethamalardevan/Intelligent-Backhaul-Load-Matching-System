@@ -1,19 +1,24 @@
 """
-app.py -- IBLMS ML microservice. Serves TWO independent trained models over
-one Flask process:
+app.py -- IBLMS ML microservice. Serves all FOUR of the project's trained
+models over one Flask process:
 
   - ML Module 1 (Match/Compatibility Prediction) -- trained by train_model.py.
   - ML Module 2 (Profitability Prediction) -- trained by
-    train_profitability_model.py, added in Addendum 36. It runs in this same
-    process rather than a separate one, so running this project still means
-    exactly one extra long-running process (alongside the two `npm run
-    dev`s), not two.
+    train_profitability_model.py, added in Addendum 36.
+  - ML Module 3 (Demand Forecasting) -- trained by train_demand_model.py.
+  - ML Module 4 (Empty-Run Risk Prediction) -- trained by
+    train_empty_run_model.py.
 
-Both are OPTIONAL, best-effort signals on top of the existing rule-based
-engines (backend/services/matching.js, backend/services/profitability.js),
-which are never modified or blocked by either model -- see
-backend/services/mlClient.js, which times out quickly and simply omits the
-ML field for whichever endpoint is slow, unreachable, or not running.
+All four run in this same process rather than four separate ones, so running
+this project still means exactly one extra long-running process (alongside
+the two `npm run dev`s), not four.
+
+All four are OPTIONAL, best-effort signals on top of -- never a replacement
+for -- the existing rule-based/deterministic logic (backend/services/
+matching.js, backend/services/profitability.js; Modules 3 & 4 introduce
+signals IBLMS never computed before at all) -- see backend/services/
+mlClient.js, which times out quickly and simply omits the ML field for
+whichever endpoint is slow, unreachable, or not running.
 
 Run:
     pip install -r requirements.txt
@@ -21,16 +26,24 @@ Run:
     python train_model.py                      # Module 1 model (once, or to retrain)
     python generate_profitability_dataset.py   # Module 2 data (once, or to regenerate)
     python train_profitability_model.py        # Module 2 model (once, or to retrain)
+    python generate_demand_dataset.py          # Module 3 data (once, or to regenerate)
+    python train_demand_model.py                # Module 3 model (once, or to retrain)
+    python generate_empty_run_dataset.py       # Module 4 data (once, or to regenerate)
+    python train_empty_run_model.py              # Module 4 model (once, or to retrain)
     python app.py                               # starts the server on port 5001
 
 Endpoints:
     GET  /health
-    POST /predict                      { vehicle, trip, load, ownerRatingAvg? }
-    POST /predict-batch                { items: [ { id, vehicle, trip, load, ownerRatingAvg? }, ... ] }
-    POST /predict-profitability        { vehicle, trip, load }
-    POST /predict-profitability-batch  { items: [ { id, vehicle, trip, load }, ... ] }
+    POST /predict                        { vehicle, trip, load, ownerRatingAvg? }
+    POST /predict-batch                  { items: [ { id, vehicle, trip, load, ownerRatingAvg? }, ... ] }
+    POST /predict-profitability          { vehicle, trip, load }
+    POST /predict-profitability-batch    { items: [ { id, vehicle, trip, load }, ... ] }
+    POST /predict-demand                 { origin, destination, anchorDate, recentLoadCount14d, recentLoadCount30d }
+    POST /predict-empty-run-risk         { vehicle, tripSource, tripDestination, availableFrom, compatibleLoadsNearbyCount }
+    POST /predict-empty-run-risk-batch   { items: [ { id, vehicle, tripSource, tripDestination, availableFrom, compatibleLoadsNearbyCount }, ... ] }
 """
 
+import json
 import math
 import os
 from datetime import datetime
@@ -44,23 +57,49 @@ MODEL_PATH = os.path.join(os.path.dirname(__file__), "model", "compatibility_mod
 MODEL_VERSION = "synthetic-v2"
 PROFITABILITY_MODEL_PATH = os.path.join(os.path.dirname(__file__), "model", "profitability_model.joblib")
 PROFITABILITY_MODEL_VERSION = "synthetic-v1"
+DEMAND_MODEL_PATH = os.path.join(os.path.dirname(__file__), "model", "demand_model.joblib")
+DEMAND_THRESHOLDS_PATH = os.path.join(os.path.dirname(__file__), "model", "demand_category_thresholds.json")
+DEMAND_MODEL_VERSION = "synthetic-v1"
+EMPTY_RUN_MODEL_PATH = os.path.join(os.path.dirname(__file__), "model", "empty_run_model.joblib")
+EMPTY_RUN_MODEL_VERSION = "synthetic-v1"
 
 app = Flask(__name__)
 CORS(app)
 
 try:
     _pipeline = joblib.load(MODEL_PATH)
-except FileNotFoundError:
+except Exception as exc:  # noqa: BLE001 -- intentionally broad: a missing,
+    # corrupted, or scikit-learn-version-incompatible model file must degrade
+    # this one endpoint gracefully, never crash the whole process (the same
+    # "best-effort, never blocking" contract backend/services/mlClient.js
+    # already relies on for every ML endpoint).
     _pipeline = None
-    print(f"[ml-service] WARNING: no trained model found at {MODEL_PATH}. "
+    print(f"[ml-service] WARNING: could not load model at {MODEL_PATH} ({exc!r}). "
           f"Run `python train_model.py` first. /predict will return 503 until then.")
 
 try:
     _profitability_pipeline = joblib.load(PROFITABILITY_MODEL_PATH)
-except FileNotFoundError:
+except Exception as exc:  # noqa: BLE001 -- see note above
     _profitability_pipeline = None
-    print(f"[ml-service] WARNING: no trained model found at {PROFITABILITY_MODEL_PATH}. "
+    print(f"[ml-service] WARNING: could not load model at {PROFITABILITY_MODEL_PATH} ({exc!r}). "
           f"Run `python train_profitability_model.py` first. /predict-profitability will return 503 until then.")
+
+try:
+    _demand_pipeline = joblib.load(DEMAND_MODEL_PATH)
+    with open(DEMAND_THRESHOLDS_PATH) as f:
+        _demand_thresholds = json.load(f)
+except Exception as exc:  # noqa: BLE001 -- see note above
+    _demand_pipeline = None
+    _demand_thresholds = None
+    print(f"[ml-service] WARNING: could not load model at {DEMAND_MODEL_PATH} ({exc!r}). "
+          f"Run `python train_demand_model.py` first. /predict-demand will return 503 until then.")
+
+try:
+    _empty_run_pipeline = joblib.load(EMPTY_RUN_MODEL_PATH)
+except Exception as exc:  # noqa: BLE001 -- see note above
+    _empty_run_pipeline = None
+    print(f"[ml-service] WARNING: could not load model at {EMPTY_RUN_MODEL_PATH} ({exc!r}). "
+          f"Run `python train_empty_run_model.py` first. /predict-empty-run-risk will return 503 until then.")
 
 # ---- Mirrors backend/utils/distance.js CITY_COORDS exactly ----
 CITY_COORDS = {
@@ -107,6 +146,11 @@ def city_km(a, b):
 
 def clamp(n, lo=0.0, hi=100.0):
     return max(lo, min(hi, n))
+
+
+def cyclical(value, period):
+    angle = 2.0 * math.pi * (value / period)
+    return math.sin(angle), math.cos(angle)
 
 
 def parse_dt(value):
@@ -335,6 +379,147 @@ def predict_profitability_one(vehicle, trip, load):
     }
 
 
+def build_demand_features(origin, destination, anchor_date, recent_load_count_14d, recent_load_count_30d):
+    """Returns (feature_row_dict, reason_if_ineligible) for ML Module 3
+    (Demand Forecasting, Addendum 39). origin/destination must be known
+    cities (same CITY_COORDS list every other module uses); anchor_date is
+    the date the forecast is being made FROM (today, in practice) --
+    distance and the cyclical day-of-week/day-of-year features are derived
+    from it exactly the way generate_demand_dataset.py's label generator
+    derives them. recent_load_count_14d/30d are NOT synthetic here -- the
+    Node backend (backend/routes/insights.js) computes them live from real
+    Load documents on this exact route before calling this endpoint."""
+    try:
+        origin = str(origin or "").strip().lower()
+        destination = str(destination or "").strip().lower()
+        anchor = parse_dt(anchor_date)
+        recent_14d = float(recent_load_count_14d)
+        recent_30d = float(recent_load_count_30d)
+    except (TypeError, ValueError) as exc:
+        return None, f"Missing or invalid field for ML scoring: {exc}"
+
+    if origin not in CITY_COORDS or destination not in CITY_COORDS:
+        return None, "Origin/destination must be one of IBLMS's known cities."
+
+    distance_km = haversine_km(CITY_COORDS[origin], CITY_COORDS[destination])
+    dow = anchor.weekday()
+    doy = anchor.timetuple().tm_yday
+    is_weekend = dow >= 5
+    dow_sin, dow_cos = cyclical(dow, 7)
+    doy_sin, doy_cos = cyclical(doy, 365)
+
+    row = {
+        "origin": origin,
+        "destination": destination,
+        "distance_km": distance_km,
+        "dow_sin": dow_sin,
+        "dow_cos": dow_cos,
+        "doy_sin": doy_sin,
+        "doy_cos": doy_cos,
+        "is_weekend": str(is_weekend),
+        "recent_load_count_14d": recent_14d,
+        "recent_load_count_30d": recent_30d,
+    }
+    return row, None
+
+
+def demand_category(predicted_load_count_7d):
+    if _demand_thresholds is None:
+        return None
+    if predicted_load_count_7d <= _demand_thresholds["lowMax"]:
+        return "Low"
+    if predicted_load_count_7d <= _demand_thresholds["mediumMax"]:
+        return "Medium"
+    return "High"
+
+
+def predict_demand_one(origin, destination, anchor_date, recent_load_count_14d, recent_load_count_30d):
+    row, reason = build_demand_features(origin, destination, anchor_date, recent_load_count_14d, recent_load_count_30d)
+    if row is None:
+        return {"eligible": False, "reason": reason}
+    if _demand_pipeline is None:
+        return {"eligible": False, "reason": "Demand model not loaded on the server."}
+    df = pd.DataFrame([row])
+    predicted = max(0.0, float(_demand_pipeline.predict(df)[0]))
+    return {
+        "eligible": True,
+        "predictedLoadCount7d": round(predicted, 1),
+        "demandCategory": demand_category(predicted),
+        "modelVersion": DEMAND_MODEL_VERSION,
+    }
+
+
+def build_empty_run_features(vehicle, trip_source, trip_destination, available_from, compatible_loads_nearby_count):
+    """Returns (feature_row_dict, reason_if_ineligible) for ML Module 4
+    (Empty-Run Risk Prediction, Addendum 39). compatible_loads_nearby_count
+    is NOT synthetic here -- the Node backend (backend/routes/insights.js)
+    computes it live for this exact trip's destination, using the same
+    radius-based "nearby loads" query as the existing GET /api/loads/near,
+    before calling this endpoint."""
+    try:
+        vtype = str(vehicle["vehicleType"])
+        capacity = float(vehicle["maxCapacityTonnes"])
+        trip_source = str(trip_source or "").strip().lower()
+        trip_destination = str(trip_destination or "").strip().lower()
+        available = parse_dt(available_from)
+        nearby_count = float(compatible_loads_nearby_count)
+    except (KeyError, TypeError, ValueError) as exc:
+        return None, f"Missing or invalid field for ML scoring: {exc}"
+
+    if trip_source not in CITY_COORDS or trip_destination not in CITY_COORDS:
+        return None, "Trip source/destination must be one of IBLMS's known cities."
+
+    distance_km = haversine_km(CITY_COORDS[trip_source], CITY_COORDS[trip_destination])
+    dow = available.weekday()
+    doy = available.timetuple().tm_yday
+    is_weekend = dow >= 5
+    dow_sin, dow_cos = cyclical(dow, 7)
+    doy_sin, doy_cos = cyclical(doy, 365)
+
+    row = {
+        "vehicle_type": vtype,
+        "max_capacity_tonnes": capacity,
+        "trip_source": trip_source,
+        "trip_destination": trip_destination,
+        "distance_km": distance_km,
+        "dow_sin": dow_sin,
+        "dow_cos": dow_cos,
+        "doy_sin": doy_sin,
+        "doy_cos": doy_cos,
+        "is_weekend": str(is_weekend),
+        "compatible_loads_nearby_count": nearby_count,
+    }
+    return row, None
+
+
+def empty_run_risk_level(risk_pct):
+    # Fixed thresholds, unlike Module 3's dataset-derived tertiles -- this
+    # probability is already a calibrated 0-100% risk, not a raw regression
+    # output needing a data-driven split.
+    if risk_pct < 33.0:
+        return "Low"
+    if risk_pct < 66.0:
+        return "Medium"
+    return "High"
+
+
+def predict_empty_run_one(vehicle, trip_source, trip_destination, available_from, compatible_loads_nearby_count):
+    row, reason = build_empty_run_features(vehicle, trip_source, trip_destination, available_from, compatible_loads_nearby_count)
+    if row is None:
+        return {"eligible": False, "reason": reason}
+    if _empty_run_pipeline is None:
+        return {"eligible": False, "reason": "Empty-run risk model not loaded on the server."}
+    df = pd.DataFrame([row])
+    probability = float(_empty_run_pipeline.predict_proba(df)[0, 1])
+    risk_pct = round(probability * 100.0, 1)
+    return {
+        "eligible": True,
+        "emptyRunRiskPct": risk_pct,
+        "riskLevel": empty_run_risk_level(risk_pct),
+        "modelVersion": EMPTY_RUN_MODEL_VERSION,
+    }
+
+
 @app.get("/health")
 def health():
     return jsonify({
@@ -342,6 +527,10 @@ def health():
         "modelVersion": MODEL_VERSION,
         "profitabilityStatus": "ok" if _profitability_pipeline is not None else "model_missing",
         "profitabilityModelVersion": PROFITABILITY_MODEL_VERSION,
+        "demandStatus": "ok" if _demand_pipeline is not None else "model_missing",
+        "demandModelVersion": DEMAND_MODEL_VERSION,
+        "emptyRunStatus": "ok" if _empty_run_pipeline is not None else "model_missing",
+        "emptyRunModelVersion": EMPTY_RUN_MODEL_VERSION,
     })
 
 
@@ -383,6 +572,43 @@ def predict_profitability_batch():
     return jsonify({"predictions": predictions})
 
 
+@app.post("/predict-demand")
+def predict_demand():
+    body = request.get_json(silent=True) or {}
+    result = predict_demand_one(
+        body.get("origin"), body.get("destination"), body.get("anchorDate"),
+        body.get("recentLoadCount14d", 0), body.get("recentLoadCount30d", 0),
+    )
+    return jsonify(result)
+
+
+@app.post("/predict-empty-run-risk")
+def predict_empty_run_risk():
+    body = request.get_json(silent=True) or {}
+    result = predict_empty_run_one(
+        body.get("vehicle") or {}, body.get("tripSource"), body.get("tripDestination"),
+        body.get("availableFrom"), body.get("compatibleLoadsNearbyCount", 0),
+    )
+    return jsonify(result)
+
+
+@app.post("/predict-empty-run-risk-batch")
+def predict_empty_run_risk_batch():
+    body = request.get_json(silent=True) or {}
+    items = body.get("items") or []
+    predictions = []
+    for item in items:
+        result = predict_empty_run_one(
+            item.get("vehicle") or {}, item.get("tripSource"), item.get("tripDestination"),
+            item.get("availableFrom"), item.get("compatibleLoadsNearbyCount", 0),
+        )
+        result["id"] = item.get("id")
+        predictions.append(result)
+    return jsonify({"predictions": predictions})
+
+
 if __name__ == "__main__":
-    port = int(os.environ.get("ML_SERVICE_PORT", 5001))
+    # Render (and most PaaS hosts) inject PORT and require the app to bind
+    # to it; ML_SERVICE_PORT stays as the local-dev fallback (see README.md).
+    port = int(os.environ.get("PORT", os.environ.get("ML_SERVICE_PORT", 5001)))
     app.run(host="0.0.0.0", port=port)

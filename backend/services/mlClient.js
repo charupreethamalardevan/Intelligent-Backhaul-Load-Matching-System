@@ -159,4 +159,64 @@ async function getMlProfitabilityBatch(items) {
   }
 }
 
-module.exports = { getMlCompatibility, getMlCompatibilityBatch, getMlProfitability, getMlProfitabilityBatch };
+// ML Module 3 (Demand Forecasting, Addendum 39) -- same microservice
+// process, same optional/best-effort contract: resolves to null on any
+// failure instead of throwing. recentLoadCount14d/30d are computed by the
+// CALLER from real Load documents on this exact route (see
+// routes/insights.js) -- this function does not touch the database itself.
+async function getDemandForecast({ origin, destination, anchorDate, recentLoadCount14d, recentLoadCount30d }) {
+  try {
+    const data = await postJson('/predict-demand', {
+      origin,
+      destination,
+      anchorDate,
+      recentLoadCount14d: recentLoadCount14d ?? 0,
+      recentLoadCount30d: recentLoadCount30d ?? 0,
+    });
+    return data.eligible
+      ? { predictedLoadCount7d: data.predictedLoadCount7d, demandCategory: data.demandCategory, modelVersion: data.modelVersion }
+      : null;
+  } catch (err) {
+    warnOnce(`Could not reach the ML microservice at ${ML_SERVICE_URL} (${err.message})`);
+    return null;
+  }
+}
+
+// ML Module 4 (Empty-Run Risk Prediction, Addendum 39) -- same optional/
+// best-effort contract as every other function here; batched so a whole
+// Fleet Owner's list of available trips costs one HTTP round trip. `items`
+// is [{ id, vehicle, tripSource, tripDestination, availableFrom,
+// compatibleLoadsNearbyCount }] -- compatibleLoadsNearbyCount is computed by
+// the CALLER from real open Load documents (see routes/insights.js), the
+// same radius-based query GET /api/loads/near already uses. Returns a Map
+// of id -> { emptyRunRiskPct, riskLevel, modelVersion } (missing entries
+// mean "no ML signal for this one").
+async function getEmptyRunRiskBatch(items) {
+  if (!items.length) return new Map();
+  try {
+    const data = await postJson('/predict-empty-run-risk-batch', {
+      items: items.map((it) => ({
+        id: it.id,
+        vehicle: { vehicleType: it.vehicle.vehicleType, maxCapacityTonnes: it.vehicle.maxCapacityTonnes },
+        tripSource: it.tripSource,
+        tripDestination: it.tripDestination,
+        availableFrom: it.availableFrom,
+        compatibleLoadsNearbyCount: it.compatibleLoadsNearbyCount ?? 0,
+      })),
+    });
+    const map = new Map();
+    for (const pred of data.predictions || []) {
+      if (pred.eligible) map.set(pred.id, { emptyRunRiskPct: pred.emptyRunRiskPct, riskLevel: pred.riskLevel, modelVersion: pred.modelVersion });
+    }
+    return map;
+  } catch (err) {
+    warnOnce(`Could not reach the ML microservice at ${ML_SERVICE_URL} (${err.message})`);
+    return new Map();
+  }
+}
+
+module.exports = {
+  getMlCompatibility, getMlCompatibilityBatch,
+  getMlProfitability, getMlProfitabilityBatch,
+  getDemandForecast, getEmptyRunRiskBatch,
+};

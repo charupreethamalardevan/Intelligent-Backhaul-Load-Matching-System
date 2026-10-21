@@ -1,0 +1,884 @@
+/* Shared "data views" layer -- round 2 of the premium UI/UX rebuild
+   (Fleet Owner dashboard: operational panels + data tables + side panel).
+
+   New, additive file: nothing here replaces widgets.css (StatCard /
+   MiniCharts / ActivityList), which stays exactly as-is for the Poster and
+   Admin dashboards, untouched this round. These classes are only pulled in
+   by the components that actually use them (AttentionPanel, PulseRow,
+   TripsInMotionList, RequestPipeline, DataTable, SidePanel,
+   FleetDashboard's Overview, and the restyled RequestsPanel/InviteManager,
+   which both already import widgets.css too for .wg-muted/.wg-panel-header
+   and keep using them where that's still the right fit). All colors come
+   from index.css's tokens -- nothing hardcoded, so this follows the
+   light/dark palette automatically. */
+
+.dv-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.dv-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.dv-panel-head h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+}
+
+.dv-hint {
+  font-size: 12.5px;
+  color: var(--ink-muted);
+}
+
+.dv-section-gap {
+  margin-bottom: 16px;
+}
+
+.dv-empty {
+  padding: 18px;
+  font-size: 13.5px;
+  color: var(--ink-muted);
+}
+
+/* ---------- Attention panel ---------- */
+
+.dv-attn-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 18px;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.dv-attn-row:last-child {
+  border-bottom: none;
+}
+
+.dv-attn-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.dv-attn-text {
+  flex: 1;
+  min-width: 180px;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.dv-attn-text b {
+  font-weight: 700;
+}
+
+.dv-attn-text .muted {
+  color: var(--ink-muted);
+}
+
+.dv-attn-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ---------- Pulse row ---------- */
+
+.dv-pulse-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.dv-pulse-tile {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 13px 15px;
+  box-shadow: var(--shadow-card);
+}
+
+.dv-pulse-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-muted);
+}
+
+.dv-pulse-value {
+  font-size: 22px;
+  font-weight: 700;
+  margin-top: 5px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.dv-pulse-value small {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-faint);
+}
+
+.dv-pulse-delta {
+  font-size: 12px;
+  margin-top: 3px;
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+.dv-pulse-delta.ok {
+  color: var(--secondary);
+}
+
+.dv-pulse-delta.warn {
+  color: var(--accent);
+}
+
+/* ---------- Two column layout ---------- */
+
+.dv-two-col {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+/* ---------- Trips in motion ---------- */
+
+.dv-trip-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13.5px;
+}
+
+.dv-trip-row:last-child {
+  border-bottom: none;
+}
+
+.dv-trip-route {
+  font-weight: 700;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dv-trip-meta {
+  color: var(--ink-muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+/* ---------- Status chips (shared: trips, requests, vehicles) ---------- */
+
+.dv-status-chip {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  display: inline-block;
+}
+
+.dv-status-chip.tone-open {
+  background: var(--surface-2);
+  color: var(--ink-muted);
+}
+
+.dv-status-chip.tone-active {
+  background: var(--secondary-soft);
+  color: var(--secondary);
+}
+
+.dv-status-chip.tone-pending {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.dv-status-chip.tone-primary {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.dv-status-chip.tone-done {
+  background: var(--surface-2);
+  color: var(--ink-faint);
+}
+
+.dv-status-chip.tone-rejected {
+  background: var(--surface-2);
+  color: var(--ink-faint);
+  text-decoration: line-through;
+}
+
+/* ---------- Request pipeline (stacked distribution bar) ---------- */
+
+.dv-pipeline-bar {
+  display: flex;
+  height: 9px;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 14px 18px 12px;
+  background: var(--surface-2);
+}
+
+.dv-pipeline-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 0 18px 16px;
+}
+
+.dv-pipeline-legend-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.dv-pipeline-legend-row .lbl {
+  display: flex;
+  align-items: center;
+  color: var(--ink-muted);
+}
+
+.dv-pipeline-sw {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  display: inline-block;
+  margin-right: 7px;
+  flex-shrink: 0;
+}
+
+.dv-pipeline-legend-row .val {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+/* ---------- Data table ---------- */
+
+.dv-table-wrap {
+  overflow-x: auto;
+}
+
+.dv-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  min-width: 560px;
+}
+
+.dv-table thead th {
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-muted);
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.dv-table tbody td {
+  padding: 11px 18px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.dv-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.dv-table tbody tr:hover {
+  background: var(--surface-2);
+}
+
+.dv-table-row-clickable {
+  cursor: pointer;
+}
+
+.dv-table-row-clickable:hover {
+  background: var(--primary-soft);
+}
+
+.dv-cell-primary {
+  font-weight: 700;
+}
+
+.dv-cell-sub {
+  color: var(--ink-muted);
+  font-size: 12.5px;
+  margin-top: 1px;
+}
+
+.dv-badge-row {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.dv-tag {
+  font-size: 11.5px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.dv-row-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+/* ---------- Table toolbar (search + primary action) ---------- */
+
+.dv-table-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dv-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--base);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 11px;
+  color: var(--ink-faint);
+  font-size: 13px;
+  width: 190px;
+}
+
+.dv-search input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 13px;
+  color: var(--ink);
+  width: 100%;
+  font-family: inherit;
+}
+
+.dv-select-inline {
+  font-size: 12.5px;
+  padding: 5px 7px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--base);
+  color: var(--ink);
+  font-family: inherit;
+  max-width: 180px;
+}
+
+/* ---------- Booking request rows (RequestsPanel) ---------- */
+
+.dv-req-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.dv-req-row:last-child {
+  border-bottom: none;
+}
+
+.dv-req-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dv-req-route {
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.dv-req-route .sep {
+  color: var(--ink-muted);
+  font-weight: 400;
+}
+
+.dv-req-sub {
+  font-size: 12.5px;
+  color: var(--ink-muted);
+  margin-top: 2px;
+}
+
+.dv-req-hint {
+  font-size: 12.5px;
+  color: var(--accent);
+  font-style: italic;
+}
+
+.dv-req-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ---------- History row polish (read-only booking record) ---------- */
+
+.dv-req-row-history {
+  border-left: 3px solid transparent;
+  padding-left: 15px;
+}
+
+.dv-req-row-history.tone-done {
+  border-left-color: var(--secondary);
+}
+
+.dv-req-row-history.tone-rejected {
+  border-left-color: var(--ink-faint);
+}
+
+.dv-req-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.dv-req-time {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+/* ---------- Jump-to highlight (Trip Planner -> Current Trip) ---------- */
+
+.dv-req-row-highlight {
+  background: var(--primary-soft);
+  animation: dv-req-highlight-pulse 1.4s ease-in-out 2;
+}
+
+@keyframes dv-req-highlight-pulse {
+  0%,
+  100% {
+    background: var(--primary-soft);
+  }
+  50% {
+    background: transparent;
+  }
+}
+
+/* ---------- Simulate (demo fast-forward) button ---------- */
+
+.dv-sim-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-style: dashed !important;
+  color: var(--accent);
+}
+
+.dv-sim-btn svg {
+  flex-shrink: 0;
+}
+
+/* ---------- Completed-booking wrap-up (CompletedActions: Payment + Rating) ---------- */
+
+.dv-req-wrapup {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+
+.dv-req-wrapup-error {
+  grid-column: 1 / -1;
+  color: #dc2626;
+  font-size: 13px;
+  margin: 0;
+}
+
+.dv-req-wrapup-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.dv-req-wrapup-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-muted);
+}
+
+.dv-req-wrapup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dv-req-wrapup-done {
+  font-size: 13.5px;
+  font-weight: 600;
+  background: var(--accent-soft);
+  color: var(--primary);
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+}
+
+.dv-req-wrapup-received {
+  font-size: 12.5px;
+  color: var(--ink-muted);
+}
+
+@media (max-width: 560px) {
+  .dv-req-wrapup {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Invite rows (InviteManager) ---------- */
+
+.dv-invite-form {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.dv-invite-code-banner {
+  margin: 0;
+  padding: 10px 18px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--secondary);
+  background: var(--secondary-soft);
+  border-bottom: 1px solid var(--line);
+}
+
+/* ---------- Side panel (slide-over form) ---------- */
+
+.dv-side-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 14, 0.4);
+  z-index: 60;
+  animation: dv-fade-in 0.15s ease;
+}
+
+.dv-side-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(420px, 100vw);
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  box-shadow: var(--shadow-elevated);
+  z-index: 61;
+  display: flex;
+  flex-direction: column;
+  animation: dv-slide-in 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dv-side-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.dv-side-head h2 {
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: 700;
+}
+
+.dv-side-body {
+  padding: 18px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+@keyframes dv-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dv-slide-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dv-side-backdrop,
+  .dv-side-panel {
+    animation: none;
+  }
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 860px) {
+  .dv-pulse-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .dv-two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .dv-pulse-row {
+    grid-template-columns: 1fr;
+  }
+  .dv-side-panel {
+    width: 100vw;
+  }
+}
+
+/* ---------- Simulate modal (big, slow-paced demo fast-forward) ---------- */
+/* Same centered-dialog pattern as TripMap.css's .trip-nav-* (a map needs
+   the same kind of real estate a stepper animation does), kept as its own
+   class names here since this isn't map-specific. */
+
+.sim-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 14, 0.55);
+  z-index: 80;
+  animation: dv-fade-in 0.15s ease;
+}
+
+.sim-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(640px, 94vw);
+  max-height: min(80vh, 640px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elevated);
+  z-index: 81;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: dv-sim-pop-in 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes dv-sim-pop-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.sim-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.sim-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.sim-sub {
+  margin: 3px 0 0;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+
+.sim-body {
+  padding: 22px 20px 20px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.sim-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+}
+
+.sim-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 78px;
+  position: relative;
+  padding-top: 2px;
+}
+
+.sim-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 17px;
+  left: calc(50% + 20px);
+  right: calc(-50% + 20px);
+  height: 2px;
+  background: var(--line);
+}
+
+.sim-step.done:not(:last-child)::after {
+  background: var(--secondary);
+}
+
+.sim-step-dot {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 2px solid var(--line);
+  color: var(--ink-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12.5px;
+  font-weight: 700;
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+.sim-step.done .sim-step-dot {
+  background: var(--secondary-soft);
+  border-color: var(--secondary);
+  color: var(--secondary);
+}
+
+.sim-step.active .sim-step-dot {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary);
+  animation: dv-sim-step-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes dv-sim-step-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 35%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--primary) 0%, transparent);
+  }
+}
+
+.sim-step-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ink-muted);
+  text-align: center;
+}
+
+.sim-step.active .sim-step-label {
+  color: var(--primary);
+}
+
+.sim-step.done .sim-step-label {
+  color: var(--secondary);
+}
+
+.sim-error {
+  margin: 0;
+  font-size: 13.5px;
+  color: #dc2626;
+}
+
+.sim-success {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--secondary);
+  background: var(--secondary-soft);
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+}
+
+.sim-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.sim-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (max-width: 640px) {
+  .sim-modal {
+    width: 100vw;
+    max-height: 100vh;
+    height: 100vh;
+    top: 0;
+    left: 0;
+    transform: none;
+    border-radius: 0;
+  }
+  .sim-steps {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .sim-step {
+    flex: 0 0 25%;
+    min-width: 0;
+    margin-bottom: 14px;
+  }
+  .sim-step:not(:last-child)::after {
+    display: none;
+  }
+}

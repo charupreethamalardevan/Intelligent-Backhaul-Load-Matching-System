@@ -9,7 +9,12 @@ export const updateRequestStatus = (id, status) => apiFetch(`/requests/${id}/sta
 // Called from TripMap's "Share my location" toggle (driver/owner side
 // only, and only while the booking is pickup/in_transit -- the backend
 // re-checks both, this is just what lets the UI post a position at all).
-export const updateRequestLocation = (id, lat, lng) => apiFetch(`/requests/${id}/location`, json('PATCH', { lat, lng })).then((d) => d.liveLocation);
+// `source` is optional and omitted for a real GPS reading (backend
+// defaults to 'real_gps'); TripMap's simulated-preview animation passes
+// 'simulated' so the point is logged to TruckLocationLog without ever
+// being written into match.liveLocation / shown as a real "Live" marker
+// (see routes/matches.js's PATCH /:id/location).
+export const updateRequestLocation = (id, lat, lng, source) => apiFetch(`/requests/${id}/location`, json('PATCH', { lat, lng, source })).then((d) => d.liveLocation);
 
 export const STATUS_LABELS = {
   pending_fleet_approval: 'Pending Fleet Approval',

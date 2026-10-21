@@ -1,0 +1,541 @@
+/* Shared design system for the authentication flow -- signup role/subtype
+   selection, the leaf registration form, and login. Built for the user's
+   "premium Pika-inspired authentication redesign" brief: editorial
+   surfaces with restrained indigo/violet/teal accents, strong typography,
+   sophisticated card states, consistent spacing -- shared across every
+   auth page instead of each page re-inventing its own version, per the
+   brief's own "design system" section.
+
+   Scope decision -- REVISED per direct user feedback on the first version
+   of this redesign ("it is dark even in light theme"): the first version
+   made the selection canvas permanently dark regardless of the site's own
+   light/dark toggle, mirroring the Landing hero's "always dark" behavior.
+   The user asked for the whole page to follow the theme toggle instead, so
+   `.auth-canvas` (renamed from `.auth-dark`) now maps its --ac-* tokens
+   straight onto the app's real var(--base/--surface/--ink/...) tokens
+   instead of fixed hex values -- the canvas, the pathway cards, and the
+   step indicator all flip with the site's light/dark toggle exactly like
+   the rest of the app. Because every component below is already written
+   against these --ac-* custom properties rather than literal colors, this
+   one token-block change is enough to make everything theme-aware; no
+   other rule in this file needed to change. SiteNav.jsx needs no override
+   here any more either -- it's already theme-aware on its own, so this
+   page just lets it render normally instead of re-skinning it. */
+
+.auth-canvas {
+  --ac-bg: var(--base);
+  --ac-surface: var(--surface);
+  --ac-surface-2: var(--surface-2);
+  --ac-line: var(--line);
+  --ac-line-strong: color-mix(in srgb, var(--ink) 22%, transparent);
+  --ac-ink: var(--ink);
+  --ac-ink-muted: var(--ink-muted);
+  --ac-ink-faint: var(--ink-faint);
+  --ac-indigo: #6366f1;
+  --ac-violet: #8b5cf6;
+  --ac-teal: #2dd4bf;
+  background: var(--ac-bg);
+  color: var(--ac-ink);
+}
+
+.auth-canvas :focus-visible {
+  outline-color: var(--ac-indigo);
+}
+
+/* ---------- Typography ---------- */
+
+.ac-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ac-ink-muted);
+}
+.ac-eyebrow::before {
+  content: '';
+  width: 22px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--ac-indigo), var(--ac-teal));
+}
+
+.ac-h1 {
+  margin: 14px 0 10px;
+  font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+  font-weight: 800;
+  font-size: clamp(32px, 4.2vw, 54px);
+  letter-spacing: -0.01em;
+  line-height: 1.02;
+  color: var(--ac-ink);
+}
+
+.ac-sub {
+  margin: 0;
+  color: var(--ac-ink-muted);
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+
+/* ---------- Compact step indicator for the signup flow (category -> type
+   -> details). Derived from real navigation state in SignupRoleSelect.jsx,
+   not a fabricated multi-page wizard -- see that file's own comment. ---------- */
+
+.ac-steps {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+.ac-step {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ac-ink-faint);
+  transition: color 0.2s ease;
+}
+.ac-step-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--ac-line-strong);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+.ac-step.is-done {
+  color: var(--ac-ink-muted);
+}
+.ac-step.is-done .ac-step-dot {
+  background: var(--ac-teal);
+}
+.ac-step.is-active {
+  color: var(--ac-ink);
+}
+.ac-step.is-active .ac-step-dot {
+  background: var(--ac-indigo);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.22);
+}
+.ac-step-sep {
+  width: 18px;
+  height: 1px;
+  background: var(--ac-line);
+}
+
+/* ---------- Back button, dark variant ---------- */
+
+.ac-back-btn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--ac-line-strong);
+  background: color-mix(in srgb, var(--ac-ink) 5%, transparent);
+  color: var(--ac-ink-muted);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  margin-bottom: 22px;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.ac-back-btn:hover {
+  border-color: var(--ac-indigo);
+  color: var(--ac-ink);
+  background: rgba(99, 102, 241, 0.1);
+}
+
+/* ---------- Pathway selection cards -- the signup role-select grid's
+   priority-one redesign. Same component serves both the category screen
+   (2 cards) and every subtype screen (2-3 cards): data-driven, not
+   duplicated markup. Keyboard accessible by construction (real <button>
+   elements). ---------- */
+
+.ac-path-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(16px, 2.4vw, 28px);
+  width: 100%;
+}
+.ac-path-grid[data-count='3'] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@media (max-width: 760px) {
+  .ac-path-grid,
+  .ac-path-grid[data-count='3'] {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ac-path-card {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 20px;
+  text-align: left;
+  min-height: 212px;
+  background: linear-gradient(165deg, var(--ac-surface), var(--ac-surface-2));
+  border: 1px solid var(--ac-line);
+  border-radius: 20px;
+  padding: clamp(24px, 2.8vw, 34px);
+  font-family: inherit;
+  color: var(--ac-ink);
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.18s ease, box-shadow 0.2s ease;
+}
+.ac-path-card::before {
+  content: '';
+  position: absolute;
+  top: -70px;
+  right: -60px;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--ac-indigo) 0%, transparent 72%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+.ac-path-card:hover,
+.ac-path-card:focus-visible {
+  border-color: color-mix(in srgb, var(--ac-indigo) 55%, var(--ac-line));
+  transform: translateY(-3px);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.38);
+}
+.ac-path-card:hover::before,
+.ac-path-card:focus-visible::before {
+  opacity: 0.16;
+}
+.ac-path-card:active {
+  transform: translateY(-1px) scale(0.995);
+}
+
+.ac-path-icon {
+  position: relative;
+  z-index: 1;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--ac-ink) 6%, transparent);
+  border: 1px solid var(--ac-line);
+  color: var(--ac-ink);
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+.ac-path-card:hover .ac-path-icon,
+.ac-path-card:focus-visible .ac-path-icon {
+  border-color: var(--ac-indigo);
+  color: var(--ac-teal);
+  background: rgba(99, 102, 241, 0.14);
+}
+
+.ac-path-body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ac-path-label {
+  font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+  font-size: clamp(20px, 2vw, 25px);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.ac-path-hint {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ac-ink-muted);
+  max-width: 36ch;
+}
+
+.ac-path-arrow {
+  position: relative;
+  z-index: 1;
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ac-ink-faint);
+  transition: color 0.2s ease;
+}
+.ac-path-arrow svg {
+  transition: transform 0.2s ease;
+}
+.ac-path-card:hover .ac-path-arrow,
+.ac-path-card:focus-visible .ac-path-arrow {
+  color: var(--ac-teal);
+}
+.ac-path-card:hover .ac-path-arrow svg,
+.ac-path-card:focus-visible .ac-path-arrow svg {
+  transform: translateX(4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ac-path-card,
+  .ac-path-card::before,
+  .ac-path-icon,
+  .ac-path-arrow,
+  .ac-path-arrow svg {
+    transition: none;
+  }
+  .ac-path-card:hover,
+  .ac-path-card:focus-visible {
+    transform: none;
+  }
+}
+
+/* ---------- Refined, theme-aware form pieces -- used inside the actual
+   form panels (login card, registration form), which intentionally stay
+   on the normal var(--base/--surface/--ink/--primary) tokens rather than
+   the forced-dark canvas above, so they correctly flip with the site's
+   real light/dark theme. Additive classes only (ac-input, not a redefine
+   of the global .input) so nothing outside the auth flow is affected. ---------- */
+
+.ac-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.ac-field-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-muted);
+}
+.ac-input-wrap {
+  position: relative;
+}
+.ac-input {
+  width: 100%;
+  padding: 13px 14px;
+  border-radius: 12px;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ac-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 12%, transparent);
+}
+.ac-input.has-toggle {
+  padding-right: 44px;
+}
+.ac-input-toggle {
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.ac-input-toggle:hover {
+  color: var(--ink);
+  background: var(--primary-soft);
+}
+
+.ac-btn-primary {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 13px 16px;
+  border-radius: 999px;
+  border: none;
+  background: var(--primary);
+  color: var(--primary-ink);
+  font-weight: 700;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: filter 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease, opacity 0.15s ease;
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--primary) 30%, transparent);
+}
+.ac-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.07);
+  transform: translateY(-1px);
+}
+.ac-btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+.ac-btn-primary:disabled {
+  opacity: 0.62;
+  cursor: default;
+  transform: none;
+}
+
+.ac-spin {
+  width: 15px;
+  height: 15px;
+  animation: ac-spin 0.8s linear infinite;
+}
+@keyframes ac-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ac-spin {
+    animation-duration: 1.6s;
+  }
+}
+
+.ac-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, #dc2626 10%, transparent);
+  border: 1px solid color-mix(in srgb, #dc2626 30%, transparent);
+  color: #dc2626;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.ac-success {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px;
+  border-radius: 14px;
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.ac-success-title {
+  font-weight: 700;
+  color: var(--ink);
+  font-size: 14px;
+}
+.ac-success-sub {
+  font-size: 12.5px;
+  color: var(--ink-muted);
+}
+
+/* ---------- Document drop zone -- same setFiles() handler as before,
+   just a far more polished surface around it: click-to-browse (the real
+   file input, visually hidden) plus real drag-and-drop. File-type/size
+   guidance text reflects the backend's actual limit
+   (middleware/upload.js: 10MB/file, no server-side type filter), not an
+   invented restriction -- nothing here changes what the server accepts. ---------- */
+
+.ac-dropzone {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  border: 1.5px dashed var(--line);
+  border-radius: 14px;
+  padding: 15px 16px;
+  background: var(--base);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.ac-dropzone:hover,
+.ac-dropzone.is-dragover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.ac-dropzone.has-file {
+  border-style: solid;
+  border-color: var(--primary);
+}
+.ac-dropzone-icon {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-muted);
+}
+.ac-dropzone.has-file .ac-dropzone-icon {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+.ac-dropzone-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ac-dropzone-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.ac-dropzone-hint {
+  font-size: 11.5px;
+  color: var(--ink-muted);
+}
+.ac-dropzone-filename {
+  font-size: 12px;
+  color: var(--primary);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ac-dropzone input[type='file'] {
+  display: none;
+}
+
+/* ---------- Entrance motion -- short fade + subtle vertical movement,
+   gated under prefers-reduced-motion like everywhere else in this
+   project. ---------- */
+
+@media (prefers-reduced-motion: no-preference) {
+  .ac-enter {
+    animation: ac-fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .ac-enter-d1 {
+    animation-delay: 0.05s;
+  }
+  .ac-enter-d2 {
+    animation-delay: 0.1s;
+  }
+  .ac-enter-d3 {
+    animation-delay: 0.16s;
+  }
+}
+@keyframes ac-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

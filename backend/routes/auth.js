@@ -4,6 +4,11 @@ const jwt = require('jsonwebtoken');
 
 const User = require('../models/User');
 const InviteCode = require('../models/InviteCode');
+const TruckOwner = require('../models/TruckOwner');
+const Driver = require('../models/Driver');
+const LoadPoster = require('../models/LoadPoster');
+const Document = require('../models/Document');
+const UserPhone = require('../models/UserPhone');
 const { upload } = require('../middleware/upload');
 const { SUBTYPES } = require('../utils/roles');
 const { requireAuth } = require('../middleware/auth');
@@ -12,6 +17,74 @@ const router = express.Router();
 
 function publicUser(user) {
   return { id: user._id, role: user.role, name: user.name, email: user.email, status: user.status };
+}
+
+// ER-diagram migration: alongside the existing `users` row, registration
+// now also creates the matching ISA-subtype row (TRUCK_OWNER/DRIVER/
+// LOAD_POSTER, per Table Reduction rule #1 -- same _id as the parent User),
+// a real DOCUMENT row for any uploaded file (instead of only the embedded
+// users.documents[] array, which stays untouched for backward
+// compatibility), and a USER_PHONE row for the phone number collected at
+// signup. An "Independent Owner-Driver" (role owner_driver) gets BOTH a
+// TruckOwner row and a Driver row sharing that same _id, matching the
+// SRS's overlapping-subtype description.
+async function createSubtypeRows(user, { config, filesByField, inviteDoc }) {
+  const tasks = [];
+
+  if (user.role === 'fleet_owner' || user.role === 'owner_driver') {
+    tasks.push(TruckOwner.create({ _id: user._id, companyName: user.companyName, address: '' }));
+  }
+  if (user.role === 'owner_driver') {
+    tasks.push(Driver.create({ _id: user._id, truckOwnerId: user._id }));
+  }
+  if (user.role === 'driver') {
+    tasks.push(Driver.create({ _id: user._id, truckOwnerId: user.fleetOwnerId }));
+  }
+  if (user.role === 'business_poster' || user.role === 'individual_poster') {
+    tasks.push(
+      LoadPoster.create({
+        _id: user._id,
+        businessName: user.role === 'business_poster' ? user.companyName : undefined,
+        businessType: user.businessType,
+        purpose: user.purpose,
+      }),
+    );
+  }
+
+  for (const docKey of config.docs) {
+    const file = filesByField[docKey];
+    if (!file) continue;
+    tasks.push(
+      Document.create({
+        userId: user._id,
+        documentType: docKey,
+        filename: file.originalname,
+        path: file.path,
+        mimeType: file.mimetype,
+      }),
+    );
+  }
+
+  // A Fleet Driver's license was uploaded by their Fleet Owner when the
+  // invite code was generated (routes/invites.js) -- copy it into a real
+  // Document row now that the driver account it belongs to finally exists.
+  if (inviteDoc && inviteDoc.licenseDoc && inviteDoc.licenseDoc.path) {
+    tasks.push(
+      Document.create({
+        userId: user._id,
+        documentType: 'license_doc',
+        filename: inviteDoc.licenseDoc.filename,
+        path: inviteDoc.licenseDoc.path,
+        mimeType: inviteDoc.licenseDoc.mimeType,
+      }),
+    );
+  }
+
+  if (user.phone) {
+    tasks.push(UserPhone.create({ userId: user._id, phoneNumber: user.phone, phoneType: 'primary' }));
+  }
+
+  await Promise.all(tasks).catch((err) => console.error('[auth/register] could not write one or more ER-diagram subtype rows:', err.message));
 }
 
 // POST /api/auth/register -- multipart/form-data: role + that role's
@@ -82,6 +155,8 @@ router.post('/register', upload.any(), async (req, res) => {
       fleetOwnerId,
       inviteCodeId: inviteDoc ? inviteDoc._id : undefined,
     });
+
+    await createSubtypeRows(user, { config, filesByField, inviteDoc });
 
     if (inviteDoc) {
       inviteDoc.used = true;

@@ -5,6 +5,7 @@ import SignupRoleSelect from './pages/SignupRoleSelect.jsx';
 import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import AdminPage from './pages/AdminPage.jsx';
+import { API_BASE } from './lib/api.js';
 
 // Talks to the backend's health check (server.js -> routes/index.js) so we
 // can prove frontend + backend + DB are all actually connected. Also wires
@@ -23,7 +24,7 @@ function StatusCheck() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/health')
+    fetch(`${API_BASE}/health`)
       .then((res) => res.json())
       .then(setHealth)
       .catch((err) => setError(err.message));

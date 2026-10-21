@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:5000/api';
+import { API_BASE } from './api.js'; // same backend base as the regular user API -- see api.js's comment
 const TOKEN_KEY = 'iblms_admin_token'; // separate from the regular user token on purpose
 
 export function getAdminToken() {

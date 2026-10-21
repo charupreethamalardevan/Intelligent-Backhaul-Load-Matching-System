@@ -22,27 +22,29 @@ export default function SiteNav({ activePage }) {
 
   return (
     <div className="navbar">
-      <Link to="/" className="brand" style={{ textDecoration: 'none', color: 'var(--text)' }}>
-        <span className="mark">IB</span> IBLMS
-      </Link>
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-        <Link to="/" className="btn btn-outline" style={{ fontSize: 12.5 }}>
-          {t('nav.home')}
+      <div className="navbar-inner">
+        <Link to="/" className="brand" style={{ textDecoration: 'none', color: 'var(--ink)' }}>
+          <span className="mark">IB</span> IBLMS
         </Link>
-        {activePage !== 'login' && (
-          <Link to="/login" className="btn btn-outline" style={{ fontSize: 12.5 }}>
-            {t('nav.login')}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <Link to="/" className="btn btn-outline" style={{ fontSize: 12.5 }}>
+            {t('nav.home')}
           </Link>
-        )}
-        {activePage !== 'signup' && (
-          <Link to="/signup" className="btn btn-primary" style={{ fontSize: 12.5 }}>
-            {t('nav.signup')}
-          </Link>
-        )}
-        <LanguageSwitcher />
-        <button className="ds-icon-btn" onClick={() => setDark((d) => !d)} title={t('common.toggleTheme')} aria-label={t('common.toggleTheme')}>
-          {dark ? <IconSun size={17} /> : <IconMoon size={17} />}
-        </button>
+          {activePage !== 'login' && (
+            <Link to="/login" className="btn btn-outline" style={{ fontSize: 12.5 }}>
+              {t('nav.login')}
+            </Link>
+          )}
+          {activePage !== 'signup' && (
+            <Link to="/signup" className="btn btn-primary" style={{ fontSize: 12.5 }}>
+              {t('nav.signup')}
+            </Link>
+          )}
+          <LanguageSwitcher />
+          <button className="ds-icon-btn" onClick={() => setDark((d) => !d)} title={t('common.toggleTheme')} aria-label={t('common.toggleTheme')}>
+            {dark ? <IconSun size={17} /> : <IconMoon size={17} />}
+          </button>
+        </div>
       </div>
     </div>
   );

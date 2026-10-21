@@ -12,6 +12,7 @@ import StatCard from '../components/StatCard.jsx';
 import { MiniLineChart, MiniBarChart } from '../components/MiniCharts.jsx';
 import ActivityList from '../components/ActivityList.jsx';
 import LocationSelect from '../components/LocationSelect.jsx';
+import RoutePreviewMap from '../components/RoutePreviewMap.jsx';
 import { CARGO_TYPES, VEHICLE_TYPE_INFO } from '../lib/catalog.js';
 import {
   IconGrid,
@@ -119,30 +120,33 @@ function LoadsTab({ loads, reload }) {
             <label className="field-label" htmlFor="load-special">{t('forms.load.special')}</label>
             <input id="load-special" className="input" placeholder={t('forms.load.specialPlaceholder')} value={form.specialRequirements} onChange={(e) => setForm({ ...form, specialRequirements: e.target.value })} />
           </div>
+          <div style={{ gridColumn: 'span 3' }}>
+            <RoutePreviewMap source={form.pickupLocation} destination={form.deliveryLocation} />
+          </div>
           <button className="btn btn-primary" type="submit" disabled={saving} style={{ gridColumn: 'span 3' }}>
             {saving ? t('forms.load.submitting') : t('forms.load.submit')}
           </button>
         </form>
-        {error && <p style={{ color: '#DC2626', fontSize: 13, marginTop: 8 }}>{error}</p>}
+        {error && <p style={{ color: '#DC2626', fontSize: 14, marginTop: 8 }}>{error}</p>}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {loads.map((l) => (
-          <div key={l._id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: 14 }}>
+          <div key={l._id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 800, fontSize: 15 }}>
                 {l.pickupLocation} → {l.deliveryLocation}
               </div>
-              <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>
+              <div style={{ fontSize: 13.5, color: 'var(--muted)' }}>
                 {l.cargoType} · {l.cargoWeightTonnes}t · ₹{l.expectedPrice} · {l.status}
               </div>
             </div>
-            <button className="btn btn-outline" style={{ fontSize: 12 }} onClick={() => deleteLoad(l._id).then(reload)}>
+            <button className="btn btn-outline" style={{ fontSize: 13, flexShrink: 0 }} onClick={() => deleteLoad(l._id).then(reload)}>
               {t('forms.load.remove')}
             </button>
           </div>
         ))}
-        {loads.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)' }}>{t('forms.load.noneYet')}</p>}
+        {loads.length === 0 && <p style={{ fontSize: 14, color: 'var(--muted)' }}>{t('forms.load.noneYet')}</p>}
       </div>
     </div>
   );
@@ -188,11 +192,11 @@ function FindVehiclesTab({ loads }) {
             ))}
           </select>
         </div>
-        {open.length === 0 && <p style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 8 }}>{t('forms.findVehicles.postLoadFirst')}</p>}
+        {open.length === 0 && <p style={{ fontSize: 13.5, color: 'var(--muted)', marginTop: 8 }}>{t('forms.findVehicles.postLoadFirst')}</p>}
       </div>
 
-      {loading && <p style={{ fontSize: 13, color: 'var(--muted)' }}>{t('forms.findVehicles.scoring')}</p>}
-      {error && <p style={{ color: '#DC2626', fontSize: 13 }}>{error}</p>}
+      {loading && <p style={{ fontSize: 14, color: 'var(--muted)' }}>{t('forms.findVehicles.scoring')}</p>}
+      {error && <p style={{ color: '#DC2626', fontSize: 14 }}>{error}</p>}
       {result && (
         <MatchResults
           matches={result.matches}

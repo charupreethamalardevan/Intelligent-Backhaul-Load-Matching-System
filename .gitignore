@@ -4,3 +4,12 @@ dist/
 backend/uploads/
 __pycache__/
 *.pyc
+
+# Stray build/edit artifacts that showed up during development -- not
+# needed to run or deploy the app, and not worth the repo size.
+/package-lock.json
+frontend/dist_verify/
+frontend/vite.config.js.timestamp-*.mjs
+frontend/public/videos/_scratch_to_delete/
+frontend/public/videos/*.bak
+ml-service/venv/

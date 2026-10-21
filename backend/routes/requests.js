@@ -3,6 +3,7 @@ const express = require('express');
 const LoadRequest = require('../models/LoadRequest');
 const Trip = require('../models/Trip');
 const Load = require('../models/Load');
+const Vehicle = require('../models/Vehicle');
 const { requireAuth } = require('../middleware/auth');
 const { scoreMatch } = require('../services/matching');
 const { scopeOwnerId } = require('./vehicles');
@@ -33,9 +34,19 @@ function driverOwnsThisVehicle(req, vehicle) {
   return req.user.role !== 'driver' || (vehicle.assignedDriverId && String(vehicle.assignedDriverId) === String(req.user.sub));
 }
 
+// A Fleet Driver counts as "vehicle side" only for requests tied to the
+// one vehicle their Fleet Owner actually assigned to them -- not their
+// whole fleet's requests. A Fleet Owner (or an Individual Owner, who is
+// both) still sees everything under their own ownerId, same as before.
 async function sideOfCaller(req, request) {
   const ownerId = await scopeOwnerId(req);
-  if (ownerId && String(ownerId) === String(request.vehicleOwnerId)) return 'vehicle';
+  if (ownerId && String(ownerId) === String(request.vehicleOwnerId)) {
+    if (req.user.role === 'driver') {
+      const vehicle = await Vehicle.findById(request.vehicleId).select('assignedDriverId');
+      if (!vehicle || String(vehicle.assignedDriverId) !== String(req.user.sub)) return null;
+    }
+    return 'vehicle';
+  }
   if (String(req.user.sub) === String(request.loadPosterId)) return 'poster';
   return null;
 }
@@ -116,11 +127,24 @@ router.post('/', async (req, res) => {
 // A request still pending_fleet_approval is invisible to the Load Poster
 // -- it hasn't been sent to them yet -- but fully visible on the vehicle
 // side (the requesting Driver and their Fleet Owner).
+//
+// A Fleet Driver sees only requests tied to the one vehicle assigned to
+// them -- not their whole fleet's history, which is the Fleet Owner's view
+// alone. A Fleet Owner (or Individual Owner) still sees every request
+// under their own ownerId, unchanged from before.
 router.get('/', async (req, res) => {
   try {
-    const ownerId = await scopeOwnerId(req);
     const or = [{ loadPosterId: req.user.sub, status: { $ne: 'pending_fleet_approval' } }];
-    if (ownerId) or.push({ vehicleOwnerId: ownerId });
+
+    if (req.user.role === 'driver') {
+      const myVehicles = await Vehicle.find({ assignedDriverId: req.user.sub }).select('_id');
+      if (myVehicles.length) {
+        or.push({ vehicleId: { $in: myVehicles.map((v) => v._id) } });
+      }
+    } else {
+      const ownerId = await scopeOwnerId(req);
+      if (ownerId) or.push({ vehicleOwnerId: ownerId });
+    }
 
     const requests = await LoadRequest.find({ $or: or })
       .populate('tripId')
@@ -213,24 +237,36 @@ router.patch('/:id/status', async (req, res) => {
   }
 });
 
-// PATCH /api/requests/:id/location -- the vehicle side reports its real,
-// live GPS position (from the browser's Geolocation API) while the
-// booking is actively on the road. Deliberately narrow: only the
-// vehicle-side caller may post a position (never the Load Poster, who
+// PATCH /api/requests/:id/location -- the vehicle side reports a position
+// while the booking is actively on the road. Deliberately narrow: only
+// the vehicle-side caller may post a position (never the Load Poster, who
 // has nothing to report), and only while status is 'pickup' or
 // 'in_transit' -- reporting a position before pickup or after delivery
 // wouldn't mean anything, so it's rejected rather than silently stored.
 // The frontend polls GET /api/requests/:id to read this back; there is no
 // separate GET endpoint for it to keep the lifecycle single-sourced.
+//
+// `source` distinguishes a genuine browser-Geolocation reading
+// ('real_gps', also the default when the field is omitted, since that's
+// what startSharing() in TripMap.jsx sends) from TripMap's own simulated-
+// preview animation ('simulated'). Only a real_gps point is ever written
+// into request.liveLocation -- the field every other viewer of this
+// booking polls and renders as the genuine "Live" (red) marker -- so a
+// demo account's simulated drift can never masquerade as real telemetry
+// to the other party. A simulated point still gets acknowledged (200,
+// echoing the request's current liveLocation unchanged) rather than
+// rejected, since TripMap calls this endpoint purely to log the attempt,
+// not to move the authoritative position.
 router.patch('/:id/location', async (req, res) => {
   try {
-    const { lat, lng } = req.body;
+    const { lat, lng, source } = req.body;
     if (typeof lat !== 'number' || typeof lng !== 'number' || Number.isNaN(lat) || Number.isNaN(lng)) {
       return res.status(400).json({ error: 'lat and lng must both be numbers.' });
     }
     if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
       return res.status(400).json({ error: 'lat/lng is out of range.' });
     }
+    const effectiveSource = source === 'simulated' ? 'simulated' : 'real_gps';
 
     const request = await LoadRequest.findById(req.params.id);
     if (!request) return res.status(404).json({ error: 'Request not found.' });
@@ -243,9 +279,11 @@ router.patch('/:id/location', async (req, res) => {
       return res.status(400).json({ error: `Location sharing is only available while a booking is in pickup or in transit (this one is "${request.status}").` });
     }
 
-    request.liveLocation = { lat, lng, updatedAt: new Date() };
-    await request.save();
-    res.json({ liveLocation: request.liveLocation });
+    if (effectiveSource === 'real_gps') {
+      request.liveLocation = { lat, lng, updatedAt: new Date() };
+      await request.save();
+    }
+    res.json({ liveLocation: request.liveLocation, source: effectiveSource });
   } catch (err) {
     console.error('[requests/update-location]', err);
     res.status(500).json({ error: 'Could not update the live location.' });

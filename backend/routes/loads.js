@@ -1,6 +1,8 @@
 const express = require('express');
 
 const Load = require('../models/Load');
+const LoadItem = require('../models/LoadItem');
+const LoadLandmark = require('../models/LoadLandmark');
 const { requireAuth } = require('../middleware/auth');
 const { cityDistanceKm } = require('../utils/distance');
 
@@ -20,6 +22,13 @@ function requirePosterRole(req, res, next) {
 }
 
 // POST /api/loads -- a shipper's transportation requirement (SRS Section 11).
+// ER-diagram migration: also writes the ER-diagram's LOAD_ITEM (a single
+// cargo line, itemNumber 1, matching this Load's own cargoType/
+// cargoWeightTonnes -- the schema supports more than one line, this app's
+// posting form still collects exactly one) and LOAD_LANDMARK (pickup +
+// delivery points, so the Map and Route Module has real landmark rows to
+// read instead of only the free-text location strings) as real rows
+// alongside the Load itself.
 router.post('/', requirePosterRole, async (req, res) => {
   try {
     const {
@@ -55,6 +64,13 @@ router.post('/', requirePosterRole, async (req, res) => {
       specialRequirements,
       expectedPrice,
     });
+
+    await Promise.all([
+      LoadItem.create({ loadId: load._id, itemNumber: 1, cargoType, weightTonnes: cargoWeightTonnes, description: specialRequirements }),
+      LoadLandmark.create({ loadId: load._id, landmarkNumber: 1, label: pickupLocation, kind: 'pickup_point' }),
+      LoadLandmark.create({ loadId: load._id, landmarkNumber: 2, label: deliveryLocation, kind: 'delivery_point' }),
+    ]).catch((err) => console.error('[loads/create] could not write LoadItem/LoadLandmark rows:', err.message));
+
     res.status(201).json({ load });
   } catch (err) {
     console.error('[loads/create]', err);
@@ -73,14 +89,7 @@ router.get('/', requirePosterRole, async (req, res) => {
   }
 });
 
-// GET /api/loads/near?location=<city>&radiusKm=150 -- open loads whose
-// pickup is near a given place (SRS Section 4: "find candidate loads
-// near the area"). Unlike /api/matching/for-trip, this needs no trip yet
-// -- it's the simple "what's around here" browse the vehicle side uses
-// to pick where to head next on a multi-stop return journey, re-run with
-// a new location each time they choose a fresh destination. Distance-only
-// (no scoring/ranking against a specific vehicle) -- declared before
-// GET /:id so Express doesn't treat "near" as an :id.
+// GET /api/loads/near?location=<city>&radiusKm=150
 router.get('/near', async (req, res) => {
   try {
     const { location } = req.query;

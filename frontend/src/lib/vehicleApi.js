@@ -1,3 +1,5 @@
+// (no changes needed here -- updateVehicle already exists below, it just
+// wasn't called from any UI yet; see FleetDashboard.jsx's VehiclesTab.)
 import { apiFetch } from './api.js';
 
 const json = (method, body) => ({ method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });

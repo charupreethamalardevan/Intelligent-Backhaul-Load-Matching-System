@@ -1,0 +1,42 @@
+# Render Blueprint -- deploys the Node/Express backend and the Python
+# ml-service together as two free web services. See DEPLOYMENT.md for the
+# full click-by-click walkthrough (MongoDB Atlas, this blueprint, then the
+# Vercel frontend deploy).
+#
+# To use: push this repo to GitHub, then in Render choose
+# "New +" -> "Blueprint" and point it at the repo. Render reads this file
+# and creates both services below in one go. Values marked `sync: false`
+# are left blank here on purpose -- Render will prompt you for them once,
+# during that Blueprint creation step.
+
+services:
+  - type: web
+    name: iblms-backend
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: MONGO_URI
+        sync: false # paste your MongoDB Atlas connection string here
+      - key: JWT_SECRET
+        generateValue: true # Render generates a random secret for you
+      - key: FRONTEND_ORIGIN
+        sync: false # set this to your Vercel URL once you have it (step 5)
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ML_SERVICE_URL
+        sync: false # set this to the iblms-ml-service URL below once it's deployed
+      - key: ML_SERVICE_TIMEOUT_MS
+        value: 1500
+
+  - type: web
+    name: iblms-ml-service
+    runtime: python
+    plan: free
+    rootDir: ml-service
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT app:app

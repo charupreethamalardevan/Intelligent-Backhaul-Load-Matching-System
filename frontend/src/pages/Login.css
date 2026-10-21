@@ -1,0 +1,140 @@
+/* Login page, round 3: the round-2 dark cinematic stage is gone -- direct
+   feedback from the user's own Google Antigravity screenshot ("make it
+   like this") called for a calm, white-dominant stage instead: a bold
+   black grotesk headline, a faint dot-grid texture, and (round 4) a
+   confined ParticleBackground drifting behind the text in place of the
+   earlier static confetti-dash scatter -- again the user's own Antigravity
+   screenshot, this time asking for the moving-dot background itself, not
+   just the type style. Sizing/positioning for that canvas lives in
+   ParticleBackground.css's `.particle-bg--confined`, not here. Black pill
+   CTA on the form side; single column on mobile, stage collapses above the
+   form.
+
+   Round 6 fix: a real layout bug, caught from the user's own screenshot --
+   `SiteNav` had been mounted *inside* `.auth-panel-col` (the right form
+   column), wrapped in a `maxWidth: 420` box, so `.navbar`'s own
+   `width: 100%` (index.css) resolved against that 420px box instead of the
+   page, making the top bar visually sit only above the right half instead
+   of spanning the whole page like every other page's nav does. Fixed by
+   lifting `<SiteNav>` out to a new `.auth-shell` wrapper that's a sibling
+   of `.auth-page`, not a child of either column -- the same structural
+   pattern `SignupRoleSelect.jsx` already used correctly (`SiteNav` mounted
+   directly on the page root, not nested inside a sub-panel). */
+
+.auth-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-page {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 860px) {
+  .auth-page {
+    grid-template-columns: 1fr;
+  }
+}
+
+.auth-stage {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  background: linear-gradient(165deg, var(--ac-surface), var(--ac-bg));
+  color: var(--ac-ink);
+  padding: 60px clamp(32px, 5vw, 72px);
+  position: relative;
+  overflow: hidden;
+  border-right: 1px solid var(--ac-line);
+}
+
+@media (min-width: 861px) {
+  .auth-stage {
+    display: flex;
+  }
+}
+
+.auth-headline {
+  margin: 14px 0 16px;
+  font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+  font-weight: 800;
+  font-size: clamp(32px, 3.4vw, 46px);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  max-width: 420px;
+  position: relative;
+  z-index: 1;
+  color: var(--ac-ink);
+}
+
+.auth-copy {
+  margin: 0 0 32px;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--ac-ink-muted);
+  max-width: 380px;
+  position: relative;
+  z-index: 1;
+}
+
+.auth-stat-row {
+  display: flex;
+  gap: 36px;
+  position: relative;
+  z-index: 1;
+}
+
+.auth-stat-value {
+  font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--ac-ink);
+}
+
+.auth-stat-label {
+  font-size: 11.5px;
+  color: var(--ac-ink-muted);
+  margin-top: 2px;
+}
+
+.auth-panel-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--base);
+  color: var(--ink);
+  padding: 40px 20px 60px;
+}
+
+.auth-form-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 30px 28px;
+}
+
+.auth-form-card h2 {
+  margin: 0 0 20px;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-foot {
+  font-size: 13px;
+  color: var(--ink-muted);
+  margin: 18px 0 0;
+}

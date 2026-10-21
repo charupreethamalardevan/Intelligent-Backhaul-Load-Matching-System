@@ -1,0 +1,18 @@
+{
+  "numeric_features": [
+    "max_capacity_tonnes",
+    "distance_km",
+    "dow_sin",
+    "dow_cos",
+    "doy_sin",
+    "doy_cos",
+    "compatible_loads_nearby_count"
+  ],
+  "categorical_features": [
+    "vehicle_type",
+    "trip_source",
+    "trip_destination",
+    "is_weekend"
+  ],
+  "notes": "is_weekend must be the string 'True'/'False' (Python str(bool) form), matching the training data's encoding."
+}

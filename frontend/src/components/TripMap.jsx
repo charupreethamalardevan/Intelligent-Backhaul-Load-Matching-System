@@ -5,6 +5,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { getLocationCoords } from '../lib/locationApi.js';
 import { getRequest, updateRequestLocation } from '../lib/requestApi.js';
+import { getRoutePath, positionAtFraction } from '../lib/routeGeometry.js';
 import './TripMap.css';
 
 // Only these two statuses are "actively on the road" -- matches the same
@@ -19,10 +20,6 @@ const POLL_MS = 8000;
 const SIM_DURATION_MS = 16000;
 const SIM_STEP_MS = 200;
 
-function lerp(a, b, frac) {
-  return a + (b - a) * frac;
-}
-
 function pinIcon(color, label) {
   return L.divIcon({
     className: 'trip-map-pin',
@@ -32,27 +29,42 @@ function pinIcon(color, label) {
   });
 }
 
-// Embedded in a RequestsPanel card (Addendum 32) when the user clicks
-// "Track". Always draws the trip's real source->destination route (same
-// straight-line estimate utils/distance.js already uses -- no routing API,
-// no API key, consistent with the rest of this project). On top of that:
+// Rendered inside TripMapModal.jsx when the user clicks "Start Navigation"
+// on a RequestsPanel card (Addendum 32). Draws the trip's real
+// source->destination route, resolved from
+// OSRM's free routing API to an actual road-following path (routeGeometry.js)
+// rather than a straight line between two pins -- falling back to that
+// straight line on its own if OSRM can't be reached, so this never breaks
+// the map, just makes the line less accurate for a moment. On top of that:
 //   - while the booking is pickup/in_transit AND the vehicle side has
 //     shared a real GPS point (LoadRequest.liveLocation), polls and shows
 //     that as a genuine "Live" marker;
 //   - otherwise, for any status worth visualizing movement for, animates a
-//     marker drifting source->destination as a clearly-labelled
+//     marker travelling along that same road path (not just drifting in a
+//     straight line between the two pins) as a clearly-labelled
 //     "Simulated preview" -- this is what makes the demo accounts' (and
-//     any already-completed booking's) map show something moving at all,
-//     without ever presenting invented data as real telemetry.
-export default function TripMap({ request, canShareLocation }) {
+//     any already-completed booking's) map show real navigation-along-
+//     the-route movement, without ever presenting invented data as real
+//     telemetry.
+//
+// `height`/`scrollWheelZoom` let the same component serve two very
+// different places: RequestsPanel's compact row embed (small fixed
+// height, scroll-wheel zoom off so the page itself still scrolls normally
+// with the mouse wheel) and TripMapModal's full "Start Navigation" popup
+// (fills the dialog, scroll-wheel zoom on, since there the map -- not the
+// page -- should own the wheel).
+export default function TripMap({ request, canShareLocation, height = 260, scrollWheelZoom = false }) {
   const { t } = useTranslation();
   const [coords, setCoords] = useState(null);
+  const [route, setRoute] = useState(null);
   const [liveLocation, setLiveLocation] = useState(request.liveLocation || null);
   const [simPos, setSimPos] = useState(null);
   const [sharing, setSharing] = useState(false);
   const [shareError, setShareError] = useState(null);
+  const [simLogged, setSimLogged] = useState(false);
   const watchIdRef = useRef(null);
   const lastSentRef = useRef(0);
+  const simLogRef = useRef(0);
 
   const trip = request.tripId;
   const status = request.status;
@@ -74,6 +86,21 @@ export default function TripMap({ request, canShareLocation }) {
     };
   }, [trip]);
 
+  // Resolve the real, road-following path between the two cities -- this
+  // is what the polyline is drawn from and what the simulated marker
+  // below travels along. Resolves to a straight-line fallback on its own
+  // if OSRM is unreachable, so there's no separate error branch here.
+  useEffect(() => {
+    let cancelled = false;
+    if (!coords) return undefined;
+    getRoutePath(coords.source, coords.destination).then((r) => {
+      if (!cancelled) setRoute(r);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [coords]);
+
   // Poll for a real live position while this booking is actively moving.
   useEffect(() => {
     if (!ACTIVE_STATUSES.includes(status)) return undefined;
@@ -93,16 +120,20 @@ export default function TripMap({ request, canShareLocation }) {
     };
   }, [request._id, status]);
 
-  // Simulated drift -- only runs when there's no real position to show.
+  // Simulated navigation -- only runs when there's no real position to
+  // show. Moves at constant speed along the actual resolved road path
+  // (route.distances is cumulative km per path point), not along the
+  // straight line between the two pins, so this genuinely looks like the
+  // vehicle is following the route rather than drifting through fields.
   useEffect(() => {
-    if (!coords || hasLive || !SIM_ELIGIBLE_STATUSES.includes(status)) {
+    if (!route || hasLive || !SIM_ELIGIBLE_STATUSES.includes(status)) {
       setSimPos(null);
       return undefined;
     }
 
     const reduced = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduced) {
-      setSimPos({ lat: lerp(coords.source.lat, coords.destination.lat, 0.5), lng: lerp(coords.source.lng, coords.destination.lng, 0.5) });
+      setSimPos(positionAtFraction(route, 0.5));
       return undefined;
     }
 
@@ -110,13 +141,35 @@ export default function TripMap({ request, canShareLocation }) {
     const id = setInterval(() => {
       const elapsed = (Date.now() - start) % SIM_DURATION_MS;
       const frac = elapsed / SIM_DURATION_MS;
-      setSimPos({
-        lat: lerp(coords.source.lat, coords.destination.lat, frac),
-        lng: lerp(coords.source.lng, coords.destination.lng, frac),
-      });
+      setSimPos(positionAtFraction(route, frac));
     }, SIM_STEP_MS);
     return () => clearInterval(id);
-  }, [coords, hasLive, status]);
+  }, [route, hasLive, status]);
+
+  // Report the simulated preview's position too (tagged source:
+  // 'simulated'), so the backend sees every position this card produces,
+  // not just real GPS ones. Deliberately scoped to exactly the backend's
+  // own gate for this endpoint (vehicle side, status pickup/in_transit --
+  // see routes/requests.js's PATCH /:id/location) so this never fires a
+  // call that would just 403/400. Throttled to POLL_MS, not every
+  // animation frame. Crucially, the backend only writes
+  // request.liveLocation for a source: 'real_gps' point (the default when
+  // source is omitted, as startSharing() below does) -- a 'simulated'
+  // point is acknowledged but never written there, so this never turns
+  // into a fake "Live" (red) marker for the other party watching the same
+  // booking. Only a real GPS reading does that.
+  useEffect(() => {
+    if (!canShareLocation || hasLive || !ACTIVE_STATUSES.includes(status) || !simPos) {
+      return undefined;
+    }
+    const now = Date.now();
+    if (now - simLogRef.current < POLL_MS) return undefined;
+    simLogRef.current = now;
+    updateRequestLocation(request._id, simPos.lat, simPos.lng, 'simulated')
+      .then(() => setSimLogged(true))
+      .catch(() => {});
+    return undefined;
+  }, [simPos, canShareLocation, hasLive, status, request._id]);
 
   // Clean up any live geolocation watch on unmount (e.g. the card gets
   // collapsed again) so a background tab doesn't keep reporting position.
@@ -160,22 +213,29 @@ export default function TripMap({ request, canShareLocation }) {
   }
 
   const primary = (typeof window !== 'undefined' && getComputedStyle(document.documentElement).getPropertyValue('--primary').trim()) || '#16A34A';
-  const bounds = [
+  const endpoints = [
     [coords.source.lat, coords.source.lng],
     [coords.destination.lat, coords.destination.lng],
   ];
+  // While the real road path is still resolving, fall back to the
+  // straight two-point line so the map isn't blank for the ~1s round trip.
+  const routePoints = route && route.path.length > 1 ? route.path : endpoints;
   const markerPos = hasLive ? liveLocation : simPos;
 
   return (
     <div className="trip-map">
-      <MapContainer bounds={bounds} boundsOptions={{ padding: [32, 32] }} scrollWheelZoom={false} style={{ height: 260, width: '100%' }}>
+      <MapContainer bounds={routePoints} boundsOptions={{ padding: [32, 32] }} scrollWheelZoom={scrollWheelZoom} style={{ height, width: '100%' }}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <Polyline positions={bounds} pathOptions={{ color: primary, weight: 3, dashArray: '2 10', opacity: 0.85 }} />
-        <Marker position={bounds[0]} icon={pinIcon(primary, t('map.source'))} />
-        <Marker position={bounds[1]} icon={pinIcon('#6B7280', t('map.destination'))} />
+        {route && route.path.length > 1 ? (
+          <Polyline positions={routePoints} pathOptions={{ color: primary, weight: 4, opacity: 0.85 }} />
+        ) : (
+          <Polyline positions={routePoints} pathOptions={{ color: primary, weight: 3, dashArray: '2 10', opacity: 0.85 }} />
+        )}
+        <Marker position={endpoints[0]} icon={pinIcon(primary, t('map.source'))} />
+        <Marker position={endpoints[1]} icon={pinIcon('#6B7280', t('map.destination'))} />
         {markerPos && (
           <Marker
             position={[markerPos.lat, markerPos.lng]}
@@ -186,6 +246,9 @@ export default function TripMap({ request, canShareLocation }) {
       <div className="trip-map-footer">
         <span className={`trip-map-badge${hasLive ? ' trip-map-badge-live' : ''}`}>{hasLive ? t('map.live') : t('map.simulatedPreview')}</span>
         {ACTIVE_STATUSES.includes(status) && !hasLive && <span className="trip-map-hint">{t('map.noLiveLocationYet')}</span>}
+        {canShareLocation && simLogged && !hasLive && ACTIVE_STATUSES.includes(status) && (
+          <span className="trip-map-hint">{t('map.simulatedLogged', 'Simulated trail is being logged')}</span>
+        )}
         {canShareLocation && ACTIVE_STATUSES.includes(status) && (
           <button type="button" className="btn btn-outline" style={{ fontSize: 11.5, padding: '5px 10px' }} onClick={sharing ? stopSharing : startSharing}>
             {sharing ? t('map.stopSharing') : t('map.shareLocation')}

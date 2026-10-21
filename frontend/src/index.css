@@ -3,44 +3,46 @@
 @tailwind utilities;
 
 /* =========================================================================
-   IBLMS DESIGN SYSTEM -- premium rebuild, round 1 (design system + shell +
-   landing hero). Replaces the old flat "Forest & Gray" green theme with a
-   restrained charcoal / indigo-violet / teal palette, per the product's
-   own brief: "premium logistics control center," not a generic bright
-   SaaS template and not a glowing AI-dashboard gradient.
+   IBLMS DESIGN SYSTEM -- round 2 palette change: moved from the charcoal /
+   indigo-violet / teal brand system (round 1) to a restrained black & white
+   system with a single warm gold/bronze accent reserved for "needs
+   attention" semantics (pending approvals, warnings). Per direct user
+   feedback on the round-1 palette ("use black and white"), while still
+   wanting it "stylish and attractive" -- hence one accent rather than pure
+   grayscale, so status chips, the attention panel, and pulse deltas stay
+   legible instead of all collapsing into the same gray.
 
    IMPORTANT -- backward compatibility by design: every dashboard/component
-   NOT touched this round (FleetDashboard, PosterDashboard, AdminPage,
-   RequestsPanel, MatchResults, TripMap, ChainComparison, InviteManager,
-   LocationSelect, RoleSignupForm, StatCard, MiniCharts, ActivityList,
-   SignupRoleSelect, widgets.css) still reads the OLD variable names
-   (--bg/--text/--muted/--card/--border/--primary/--primary-text/
-   --accent-soft). Rather than touch every one of those files in this
-   single round, the old names are kept as ALIASES onto the new semantic
-   tokens below -- so the entire app re-themes to the new palette in one
-   shot, with zero risk of breaking a file this round never opened. Future
-   rounds can migrate those files to the new token names directly; nothing
-   forces that yet. ========================================================= */
+   NOT touched this round (PosterDashboard, AdminPage, MatchResults,
+   TripMap, ChainComparison, LocationSelect, RoleSignupForm, StatCard,
+   MiniCharts, ActivityList, SignupRoleSelect, widgets.css) still reads the
+   OLD variable names (--bg/--text/--muted/--card/--border/--primary/
+   --primary-text/--accent-soft). Those are kept as ALIASES onto the new
+   semantic tokens below -- so the entire app re-themes to the new palette
+   in one shot, with zero risk of breaking a file this round never opened.
+   widgets.css's own fixed-hue icon accents (blue/amber/red/violet) are a
+   separate, deliberately out-of-scope system until Poster/Admin get their
+   own redesign round. ========================================================= */
 
 :root {
   /* ---- new semantic tokens ---- */
-  --base: #FAF9F5;
+  --base: #FAFAF8;
   --surface: #FFFFFF;
-  --surface-2: #F2F0E9;
-  --line: #E6E2D8;
-  --ink: #16171C;
-  --ink-muted: #5B5E6B;
-  --ink-faint: #9093A0;
+  --surface-2: #F1F1EE;
+  --line: #E2E2DD;
+  --ink: #121214;
+  --ink-muted: #5A5A60;
+  --ink-faint: #93939A;
 
-  --primary: #4F46E5;
-  --primary-soft: #ECEBFC;
+  --primary: #15161A;
+  --primary-soft: #ECECE9;
   --primary-ink: #FFFFFF;
 
-  --secondary: #0E9488;
-  --secondary-soft: #E2F5F2;
+  --secondary: #4A4A52;
+  --secondary-soft: #EEEEEC;
 
-  --accent: #C2622A;
-  --accent-soft: #FBEADC;
+  --accent: #AB7B1E;
+  --accent-soft: #F7EEDA;
 
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -60,23 +62,23 @@
 }
 
 :root[data-theme='dark'] {
-  --base: #0B0C10;
-  --surface: #14151C;
-  --surface-2: #1B1D26;
-  --line: #272A35;
-  --ink: #EDEEF3;
-  --ink-muted: #9B9EAE;
-  --ink-faint: #6B6E7D;
+  --base: #0B0B0D;
+  --surface: #15151A;
+  --surface-2: #1D1D22;
+  --line: #2A2A30;
+  --ink: #F1F1EF;
+  --ink-muted: #9D9DA6;
+  --ink-faint: #6C6C74;
 
-  --primary: #9690FA;
-  --primary-soft: rgba(150, 144, 250, 0.16);
-  --primary-ink: #0B0C10;
+  --primary: #F1F1EF;
+  --primary-soft: rgba(241, 241, 239, 0.1);
+  --primary-ink: #0B0B0D;
 
-  --secondary: #46D6C6;
-  --secondary-soft: rgba(70, 214, 198, 0.14);
+  --secondary: #B7B7C0;
+  --secondary-soft: rgba(183, 183, 192, 0.12);
 
-  --accent: #E39660;
-  --accent-soft: rgba(227, 150, 96, 0.15);
+  --accent: #D7AC52;
+  --accent-soft: rgba(215, 172, 82, 0.16);
 
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(0, 0, 0, 0.24);
   --shadow-elevated: 0 20px 48px rgba(0, 0, 0, 0.5);
@@ -103,37 +105,56 @@ body {
   z-index: 1;
 }
 
+/* Round 2: the navbar was a floating, padded, rounded card -- on a wide
+   page with sparse content (just the wordmark + a few small buttons) that
+   card shape made the empty space between them read as a mistake, not a
+   layout. Now it's a slim, edge-to-edge sticky bar (the kind every
+   premium SaaS product actually uses) with just a bottom border and a
+   frosted-glass backdrop blur, so the emptiness reads as "this is a nav
+   bar" instead of "this card forgot to fill itself in". `.navbar-inner`
+   keeps the actual content centered at a readable width inside the
+   full-bleed bar. */
 .navbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  width: 100%;
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+
+.navbar-inner {
+  max-width: 1140px;
+  margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  padding: 14px 20px;
-  margin-bottom: 22px;
-  box-shadow: var(--shadow-card);
+  gap: 16px;
+  padding: 16px 20px;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 11px;
+  font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 19px;
   letter-spacing: -0.01em;
 }
 
 .brand .mark {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: var(--radius-sm);
   color: var(--primary-ink);
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
   background: var(--primary);
   box-shadow: 0 2px 10px color-mix(in srgb, var(--primary) 40%, transparent);
@@ -175,7 +196,7 @@ body {
 
 .card h3 {
   margin: 0 0 12px;
-  font-size: 14.5px;
+  font-size: 15.5px;
   font-weight: 700;
   letter-spacing: -0.01em;
 }
@@ -184,7 +205,7 @@ body {
   border: none;
   border-radius: var(--radius-sm);
   padding: 9px 16px;
-  font-size: 13.5px;
+  font-size: 14.5px;
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
@@ -204,6 +225,15 @@ body {
   color: var(--ink);
 }
 
+/* Opt-in pill variant -- stacked alongside .btn via a second class name,
+   never a change to .btn itself, so the square-radius buttons already in
+   use elsewhere (dashboards, the top nav) are untouched. Matches the
+   fully-rounded black CTAs on the Antigravity reference the user gave us,
+   used only on the Login/Signup auth flow for now. */
+.btn-pill {
+  border-radius: 999px;
+}
+
 .input {
   width: 100%;
   padding: 10px 12px;
@@ -211,13 +241,51 @@ body {
   border: 1.5px solid var(--line);
   background: var(--base);
   color: var(--ink);
-  font-size: 13.5px;
+  font-size: 14.5px;
   font-family: inherit;
 }
 
 .input:focus {
   outline: none;
   border-color: var(--primary);
+}
+
+/* Browser autofill (saved email/password) paints its own yellow/blue tint
+   over .input regardless of theme, which is what made the email/password
+   fields look mismatched against every other field on the signup form.
+   Force it back to the app's own surface + ink colors, both themes. */
+.input:-webkit-autofill,
+.input:-webkit-autofill:hover,
+.input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--ink);
+  caret-color: var(--ink);
+  transition: background-color 9999s ease-in-out 0s;
+  box-shadow: 0 0 0 1000px var(--base) inset;
+}
+
+input[type='file'] {
+  font-size: 13.5px;
+  color: var(--ink-muted);
+  font-family: inherit;
+}
+
+input[type='file']::file-selector-button {
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 7px 12px;
+  margin-right: 10px;
+  cursor: pointer;
+  transition: border-color 0.12s ease, color 0.12s ease;
+}
+
+input[type='file']::file-selector-button:hover {
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 /* ---------- Form field clarity ---------- */
@@ -229,19 +297,19 @@ body {
 }
 
 .field-label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--ink-muted);
 }
 
 .field-hint {
-  font-size: 11.5px;
+  font-size: 12.5px;
   color: var(--ink-muted);
   margin-top: -1px;
 }
 
 .form-help {
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--ink-muted);
   margin: -4px 0 12px;
 }
@@ -259,7 +327,7 @@ body {
   padding: 6px 12px;
   border-radius: 999px;
   border: 1.5px solid var(--line);
-  font-size: 12.5px;
+  font-size: 13.5px;
   cursor: pointer;
   background: var(--base);
   color: var(--ink);
@@ -294,7 +362,7 @@ body {
 }
 
 .stat-card .s-label {
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 700;
   color: var(--ink-muted);
   text-transform: uppercase;
@@ -302,7 +370,7 @@ body {
 }
 
 .stat-card .s-value {
-  font-size: 23px;
+  font-size: 24px;
   font-weight: 700;
   margin-top: 6px;
   font-variant-numeric: tabular-nums;
@@ -310,7 +378,7 @@ body {
 }
 
 .stat-card .s-sub {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--primary);
   margin-top: 4px;
   font-weight: 600;
@@ -370,7 +438,7 @@ a {
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--ink);
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -386,7 +454,7 @@ a {
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.06);
   color: #fff;
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
 }

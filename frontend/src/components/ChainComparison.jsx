@@ -14,14 +14,14 @@ function LegCard({ leg, label }) {
   const hasProfit = leg.profitability && !leg.profitability.error;
   return (
     <div className="card" style={{ padding: 12 }}>
-      <div style={{ fontWeight: 800, fontSize: 12.5, color: 'var(--muted)' }}>{label}</div>
-      <div style={{ fontWeight: 800, fontSize: 14, marginTop: 2 }}>
+      <div style={{ fontWeight: 800, fontSize: 13.5, color: 'var(--muted)' }}>{label}</div>
+      <div style={{ fontWeight: 800, fontSize: 15, marginTop: 2 }}>
         {leg.load.pickupLocation} → {leg.load.deliveryLocation}
       </div>
-      <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>
+      <div style={{ fontSize: 13.5, color: 'var(--muted)' }}>
         {leg.load.cargoType} · {leg.load.cargoWeightTonnes}t · ₹{leg.load.expectedPrice}
       </div>
-      <div style={{ fontSize: 12.5, color: 'var(--primary)', fontWeight: 700, marginTop: 4 }}>
+      <div style={{ fontSize: 13.5, color: 'var(--primary)', fontWeight: 700, marginTop: 4 }}>
         {hasProfit ? `${t('chain.estProfit')} ₹${leg.profitability.estimatedProfit}` : '—'}
       </div>
     </div>
@@ -59,29 +59,29 @@ export default function ChainComparison({ tripId }) {
           <h3 style={{ margin: 0 }}>{t('chain.heading')}</h3>
           <p className="form-help" style={{ marginTop: 4 }}>{t('chain.help')}</p>
         </div>
-        <button className="btn btn-outline" style={{ fontSize: 12, whiteSpace: 'nowrap' }} onClick={run} disabled={loading}>
+        <button className="btn btn-outline" style={{ fontSize: 13, whiteSpace: 'nowrap' }} onClick={run} disabled={loading}>
           {loading ? t('chain.comparing') : t('chain.compareButton')}
         </button>
       </div>
 
-      {open && error && <p style={{ color: '#DC2626', fontSize: 13, marginTop: 10 }}>{error}</p>}
+      {open && error && <p style={{ color: '#DC2626', fontSize: 14, marginTop: 10 }}>{error}</p>}
 
       {open && !error && result && (
         <div style={{ marginTop: 14 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 6 }}>{t('chain.directOption')}</div>
+              <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 6 }}>{t('chain.directOption')}</div>
               {result.directBackhaul ? (
                 <LegCard leg={result.directBackhaul} label={t('chain.leg', { n: 1 })} />
               ) : (
-                <p style={{ fontSize: 12.5, color: 'var(--muted)' }}>{t('chain.noDirectFound')}</p>
+                <p style={{ fontSize: 13.5, color: 'var(--muted)' }}>{t('chain.noDirectFound')}</p>
               )}
             </div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 6 }}>
+              <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 6 }}>
                 {t('chain.chainOption')}
                 {result.chain && (
-                  <span style={{ fontWeight: 700, color: 'var(--primary)', marginLeft: 8, fontSize: 12.5 }}>
+                  <span style={{ fontWeight: 700, color: 'var(--primary)', marginLeft: 8, fontSize: 13.5 }}>
                     {t('chain.totalProfit')}: ₹{result.chain.totalProfit}
                   </span>
                 )}
@@ -93,7 +93,7 @@ export default function ChainComparison({ tripId }) {
                   ))}
                 </div>
               ) : (
-                <p style={{ fontSize: 12.5, color: 'var(--muted)' }}>{t('chain.noChainFound')}</p>
+                <p style={{ fontSize: 13.5, color: 'var(--muted)' }}>{t('chain.noChainFound')}</p>
               )}
             </div>
           </div>
@@ -104,7 +104,7 @@ export default function ChainComparison({ tripId }) {
               padding: 10,
               borderRadius: 10,
               background: 'color-mix(in srgb, var(--primary) 10%, transparent)',
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: 700,
             }}
           >
@@ -115,7 +115,7 @@ export default function ChainComparison({ tripId }) {
             {rec === 'none' && t('chain.noneFound')}
           </div>
 
-          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8 }}>{t('chain.scopeNote')}</p>
+          <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>{t('chain.scopeNote')}</p>
         </div>
       )}
     </div>

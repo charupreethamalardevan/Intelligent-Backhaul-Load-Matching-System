@@ -2,6 +2,8 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 
 const User = require('../models/User');
+const Document = require('../models/Document');
+const AdminActivityLog = require('../models/AdminActivityLog');
 const { requireAdmin } = require('../middleware/adminAuth');
 
 const router = express.Router();
@@ -20,6 +22,16 @@ router.post('/login', (req, res) => {
 });
 
 router.use(requireAdmin);
+
+// ER-diagram weak entity: ADMIN_ACTIVITY_LOG. This app's admin login is a
+// single shared env-var credential, not a real User/Admin row (see
+// models/Admin.js's own note), so every row logged here carries
+// adminId: null and actorLabel: 'env-admin' until that migrates.
+function logAdminAction(action, targetType, targetId, details) {
+  AdminActivityLog.create({ adminId: null, actorLabel: 'env-admin', action, targetType, targetId, details }).catch((err) =>
+    console.error('[admin] could not write AdminActivityLog row:', err.message),
+  );
+}
 
 // GET /api/admin/stats -- quick counts for the dashboard header.
 router.get('/stats', async (req, res) => {
@@ -55,6 +67,7 @@ router.get('/users', async (req, res) => {
 router.post('/users/:id/approve', async (req, res) => {
   const user = await User.findByIdAndUpdate(req.params.id, { status: 'approved' }, { new: true });
   if (!user) return res.status(404).json({ error: 'User not found.' });
+  logAdminAction('approve_signup', 'User', user._id, { role: user.role, email: user.email });
   res.json({ status: user.status });
 });
 
@@ -62,7 +75,35 @@ router.post('/users/:id/approve', async (req, res) => {
 router.post('/users/:id/reject', async (req, res) => {
   const user = await User.findByIdAndUpdate(req.params.id, { status: 'rejected' }, { new: true });
   if (!user) return res.status(404).json({ error: 'User not found.' });
+  logAdminAction('reject_signup', 'User', user._id, { role: user.role, email: user.email });
   res.json({ status: user.status });
+});
+
+// GET /api/admin/documents?status=pending -- ER-diagram DOCUMENT review
+// queue. NOTE (kept here deliberately, not hidden): the Project Overview
+// lists document/KYC verification as OUT OF SCOPE / future work -- built
+// anyway per the user's request for the full 22-table schema, alongside
+// (not instead of) the existing pending/approved/rejected gate on the User
+// row itself, which still controls login.
+router.get('/documents', async (req, res) => {
+  const filter = {};
+  if (req.query.status) filter.verificationStatus = req.query.status;
+  const documents = await Document.find(filter).populate('userId', 'name email role').sort({ uploadedAt: -1 });
+  res.json({ documents });
+});
+
+router.post('/documents/:id/verify', async (req, res) => {
+  const doc = await Document.findByIdAndUpdate(req.params.id, { verificationStatus: 'verified' }, { new: true });
+  if (!doc) return res.status(404).json({ error: 'Document not found.' });
+  logAdminAction('verify_document', 'Document', doc._id, { documentType: doc.documentType, userId: doc.userId });
+  res.json({ document: doc });
+});
+
+router.post('/documents/:id/reject', async (req, res) => {
+  const doc = await Document.findByIdAndUpdate(req.params.id, { verificationStatus: 'rejected' }, { new: true });
+  if (!doc) return res.status(404).json({ error: 'Document not found.' });
+  logAdminAction('reject_document', 'Document', doc._id, { documentType: doc.documentType, userId: doc.userId });
+  res.json({ document: doc });
 });
 
 module.exports = router;

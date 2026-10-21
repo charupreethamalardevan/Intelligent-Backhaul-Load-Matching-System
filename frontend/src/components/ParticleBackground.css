@@ -11,3 +11,19 @@
   pointer-events: none;
   display: block;
 }
+
+/* `confined` variant: sized to the nearest positioned ancestor instead of
+   the viewport -- e.g. `.auth-stage`, `.rs-stage`, `.hero-bg`, `.ds-main`,
+   `.ls-page`, `.role-select-page`. Uses `z-index: -1` rather than this
+   component's base `z-index: 0`, deliberately: `-1` paints behind its
+   siblings in the CSS painting order regardless of whether THEY happen to
+   be explicitly positioned with their own z-index or are ordinary static
+   in-flow elements (most of this round's new mount points are the latter,
+   e.g. SignupRoleSelect's `.rs-body` picker grid and DashboardShell's
+   `.ds-topbar`/`.ds-content`) -- a plain `0` only reliably sits behind
+   content that was ALSO given an explicit `position` + `z-index: 1`, which
+   not every page here has. */
+.particle-bg--confined {
+  position: absolute;
+  z-index: -1;
+}

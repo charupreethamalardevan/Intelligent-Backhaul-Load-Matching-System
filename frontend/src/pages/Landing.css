@@ -1,75 +1,109 @@
-/* IBLMS cinematic hero -- round 1 of the premium UI/UX rebuild.
-   A sealed dark stage, independent of the app's own light/dark toggle
-   (same convention as the old hero), restyled from scratch around the
-   new charcoal / indigo-violet / teal brand system instead of the old
-   flat green. One entrance animation (handled in Landing.jsx via Framer
-   Motion), then the stage sits still -- only the background glow breathes
-   very slightly. Class names are `hero-`-prefixed, replacing the old
-   `lp-`-prefixed names entirely (the old portal/cursor/preloader mechanic
-   is gone, not just renamed). */
+/* IBLMS cinematic landing hero. Built across many rounds -- full history in
+   this project's own Progress Log (Addenda 25-47). Round 7 recreated a
+   pasted freight-train reference as a pixel-exact, fixed 1280x800 canvas
+   scaled with a transform to fit any viewport; round 8 swapped in the
+   user's own truck video and patched a clipping bug in that scale math.
+
+   Round 9 (this round) replaces that whole fixed-canvas architecture with a
+   genuinely fluid layout -- clamp()-based type and spacing, min-height:
+   100svh, normal document flow, no absolute positioning, no JS-measured
+   scale transform -- per a detailed "Pika-inspired cinematic hero" spec.
+   Confirmed with the user (AskUserQuestion) that this rebuild, not a patch
+   on the old fixed-canvas system, was wanted. This is also what structurally
+   retires the whole Round 8 clipping-bug class rather than patching around
+   it again: there is no "fixed box that might not fit" any more, so
+   `.hero-stage` can simply grow past `100svh` on a genuinely cramped
+   viewport instead of having anything to clip against.
+
+   Video: the user's truck-hero.mp4 turned out, on direct ffmpeg inspection
+   this round, to be a 14.4s snowy-road dashcam clip where the truck is only
+   on screen for about 3.6s of each loop -- confirmed with the user (who
+   asked for it trimmed to the truck-visible segment) and re-encoded to just
+   that window; see Landing.jsx's own header comment for the full story,
+   including why the original full clip was kept alongside, not deleted.
+
+   Typography now uses this project's own already-loaded Google Fonts (Plus
+   Jakarta Sans for UI/body, Big Shoulders Display for the oversized
+   headline) instead of the old local()-only Oswald/Bebas Neue @font-face
+   stack -- both are already loaded site-wide, so the old @font-face block
+   is gone. The portrait-tablet/phone grid-based media queries from Round 7
+   are also gone -- the base rules below are fluid at every width via
+   clamp()/vw, so one rule set now covers desktop through phone; only small,
+   targeted overrides remain (feature stacking on phone, nav/menu
+   visibility). */
 
 .hero-stage {
   position: relative;
   width: 100%;
+  min-height: 100vh;
   min-height: 100dvh;
+  min-height: 100svh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   background: #0A0B0F;
   color: #F3F3F7;
   font-family: 'Plus Jakarta Sans', Arial, sans-serif;
+  --cream: #F7F5EF;
+  --white: #F9F9F9;
 }
 
-.hero-bg {
+/* ---------- Background video + layered gradients/vignette. Three layers,
+   each doing one job, kept restrained per the spec's own "don't hide the
+   footage" direction: `.fh-bg` is the plain video; `.fh-vignette` is a
+   soft radial darkening toward the frame edges for cinematic depth;
+   `.fh-tint` is the legibility gradient -- strongest at the very top (header)
+   and bottom (features/actions/scroll cue), lightest through the middle
+   so the truck itself stays clearly visible. Both overlays carry a faint
+   indigo undertone rather than neutral black/grey, which is where this
+   round's "restrained indigo/violet" accent direction actually lives (the
+   mark below carries the teal touch). ---------- */
+
+.fh-frame {
   position: absolute;
   inset: 0;
   z-index: 0;
-  pointer-events: none;
+  overflow: hidden;
+  background: #0a0b0c;
 }
 
-.hero-bg-glow {
-  position: absolute;
-  inset: -10%;
-  background:
-    radial-gradient(42% 38% at 78% 18%, rgba(150, 144, 250, 0.22), transparent 70%),
-    radial-gradient(38% 34% at 14% 82%, rgba(70, 214, 198, 0.12), transparent 70%);
-  animation: hero-breathe 14s ease-in-out infinite;
-}
-
-@keyframes hero-breathe {
-  0%, 100% { opacity: 0.85; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.04); }
-}
-
-.hero-bg-route {
+.fh-bg {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  opacity: 0.5;
+  object-fit: cover;
+  object-position: center 42%;
+  background: #0a0b0c;
 }
 
-.hero-bg-route path {
-  fill: none;
-  stroke: rgba(243, 243, 247, 0.14);
-  stroke-width: 1.4;
-  stroke-dasharray: 2 10;
-}
-
-.hero-bg-route circle {
-  fill: rgba(150, 144, 250, 0.55);
-}
-
-/* vignette so content stays readable over the glow/route line */
-.hero-stage::after {
-  content: '';
+.fh-vignette {
   position: absolute;
   inset: 0;
-  z-index: 1;
   pointer-events: none;
-  background: radial-gradient(120% 90% at 50% 30%, transparent 35%, rgba(6, 7, 10, 0.55) 100%),
-    linear-gradient(to top, rgba(6, 7, 10, 0.75) 0%, rgba(6, 7, 10, 0) 38%);
+  background: radial-gradient(ellipse 85% 70% at 50% 40%, rgba(0, 0, 0, 0) 38%, rgba(12, 8, 24, .40) 100%);
 }
+
+.fh-tint {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg,
+      rgba(8, 6, 16, .72) 0%,
+      rgba(8, 6, 16, .40) 16%,
+      rgba(8, 6, 16, .20) 38%,
+      rgba(8, 6, 16, .28) 60%,
+      rgba(8, 6, 16, .58) 82%,
+      rgba(8, 6, 16, .76) 100%),
+    linear-gradient(90deg,
+      rgba(8, 6, 16, .28) 0%,
+      rgba(8, 6, 16, 0) 20%,
+      rgba(8, 6, 16, 0) 80%,
+      rgba(8, 6, 16, .28) 100%);
+}
+
+/* ---------- Header + nav ---------- */
 
 .hero-header {
   position: relative;
@@ -78,7 +112,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: clamp(16px, 3vh, 28px) clamp(18px, 3vw, 40px) 0;
+  padding: clamp(14px, 2.4vh, 24px) clamp(18px, 3vw, 40px) 0;
 }
 
 .hero-brand {
@@ -101,10 +135,16 @@
   font-size: 12px;
   font-weight: 600;
   color: #0A0B0F;
-  background: linear-gradient(135deg, #B6B1FB, #9690FA);
+  background: linear-gradient(135deg, #FFFFFF, #D6D6DB);
 }
 
 .hero-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hero-header-actions {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -126,12 +166,117 @@
     background: rgba(243, 243, 247, 0.04);
     backdrop-filter: blur(10px);
   }
-  .hero-nav span {
+  .hero-nav a {
     padding: 7px 16px;
     border-radius: 999px;
     font-size: 13px;
-    color: rgba(243, 243, 247, 0.6);
     line-height: 1;
+    color: rgba(243, 243, 247, 0.6);
+    text-decoration: none;
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+  .hero-nav a:hover,
+  .hero-nav a:focus-visible {
+    color: #F3F3F7;
+    background: rgba(243, 243, 247, 0.09);
+  }
+}
+
+/* Mobile hamburger -- only the two nav links need it; theme/language/
+   login/signup already stay visible at every width (unchanged below). */
+.hero-menu-btn {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid rgba(243, 243, 247, 0.16);
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+.hero-menu-btn span {
+  display: block;
+  width: 15px;
+  height: 1.5px;
+  background: #F3F3F7;
+  border-radius: 1px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.hero-menu-btn[aria-expanded="true"] span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
+.hero-menu-btn[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+.hero-menu-btn[aria-expanded="true"] span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
+
+@media (max-width: 759px) {
+  .hero-menu-btn {
+    display: flex;
+  }
+  .hero-header-actions {
+    display: none;
+  }
+}
+
+.hero-mobile-menu {
+  position: relative;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 clamp(18px, 3vw, 40px);
+  padding: 0 6px;
+  border-radius: 16px;
+  background: rgba(8, 6, 16, 0.80);
+  backdrop-filter: blur(16px);
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: max-height 0.25s ease, opacity 0.2s ease, margin-top 0.25s ease, padding 0.25s ease;
+}
+.hero-mobile-menu a {
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(243, 243, 247, 0.85);
+  text-decoration: none;
+}
+.hero-mobile-menu a:hover,
+.hero-mobile-menu a:focus-visible {
+  background: rgba(243, 243, 247, 0.08);
+  color: #F3F3F7;
+}
+.hero-mobile-menu-divider {
+  height: 1px;
+  margin: 4px 14px;
+  background: rgba(243, 243, 247, 0.12);
+}
+.hero-mobile-menu-primary {
+  color: #0A0B0F !important;
+  background: linear-gradient(135deg, #FFFFFF, #D6D6DB);
+  font-weight: 700;
+  text-align: center;
+}
+.hero-mobile-menu-primary:hover,
+.hero-mobile-menu-primary:focus-visible {
+  color: #0A0B0F !important;
+  filter: brightness(1.05);
+  background: linear-gradient(135deg, #FFFFFF, #D6D6DB);
+}
+.hero-mobile-menu.is-open {
+  max-height: 280px;
+  opacity: 1;
+  pointer-events: auto;
+  margin-top: 8px;
+  padding: 6px;
+  border: 1px solid rgba(243, 243, 247, 0.12);
+}
+@media (min-width: 760px) {
+  .hero-mobile-menu {
+    display: none;
   }
 }
 
@@ -158,68 +303,12 @@
 .hero-btn-primary {
   border: none;
   color: #0A0B0F;
-  background: linear-gradient(135deg, #B6B1FB, #9690FA);
-  box-shadow: 0 4px 16px rgba(150, 144, 250, 0.3);
+  background: linear-gradient(135deg, #FFFFFF, #D6D6DB);
+  box-shadow: 0 4px 18px rgba(123, 92, 255, 0.18);
 }
 
 .hero-btn-primary:hover {
   filter: brightness(1.05);
-}
-
-.hero-btn-lg {
-  padding: 13px 26px;
-  font-size: 14px;
-}
-
-.hero-center {
-  position: relative;
-  z-index: 6;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  gap: 22px;
-  padding: 60px clamp(20px, 6vw, 60px);
-}
-
-.hero-kicker {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 12px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(243, 243, 247, 0.62);
-}
-
-.hero-kicker-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #9690FA;
-  box-shadow: 0 0 0 4px rgba(150, 144, 250, 0.2);
-}
-
-.hero-title {
-  margin: 0;
-  font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  line-height: 0.98;
-  font-size: clamp(40px, 7.2vw, 92px);
-  max-width: 920px;
-  text-shadow: 0 0 60px rgba(150, 144, 250, 0.18);
-}
-
-.hero-subtitle {
-  margin: 0;
-  max-width: 560px;
-  font-size: clamp(14.5px, 1.6vw, 17px);
-  line-height: 1.55;
-  color: rgba(243, 243, 247, 0.68);
 }
 
 .hero-actions {
@@ -227,7 +316,7 @@
   gap: 14px;
   flex-wrap: wrap;
   justify-content: center;
-  margin-top: 6px;
+  margin-top: clamp(4px, 1.2vh, 14px);
 }
 
 .hero-scroll-cue {
@@ -237,7 +326,7 @@
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  padding-bottom: clamp(18px, 3vh, 30px);
+  padding-bottom: clamp(14px, 2.2vh, 24px);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 10.5px;
   letter-spacing: 0.14em;
@@ -255,16 +344,177 @@
   50% { transform: translateY(5px); }
 }
 
+/* ---------- Fluid hero composition (`.fh-*`). Eyebrow -> headline -> accent
+   mark -> mirrored feature row -> kept CTA row, as a plain flex column,
+   sized with clamp()/vw. No fixed canvas, no absolute positioning, no scale
+   transform -- this is the whole point of this round's rebuild. ---------- */
+
+.fh-stagewrap {
+  position: relative;
+  z-index: 5;
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(16px, 3.4vh, 40px) clamp(20px, 6vw, 72px);
+}
+
+.fh-stage {
+  position: relative;
+  width: 100%;
+  max-width: 1240px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: clamp(8px, 1.5vh, 18px);
+}
+
+.fh-eyebrow {
+  margin: 0;
+  font: 700 clamp(10px, .55vw + 8px, 13px)/1.1 'Plus Jakarta Sans', Arial, sans-serif;
+  letter-spacing: .32em;
+  text-transform: uppercase;
+  color: var(--cream);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .45);
+}
+
+.fh-headline {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+  font-weight: 800;
+  font-size: clamp(2.75rem, 6vw + 1rem, 8rem);
+  line-height: .94;
+  letter-spacing: -.01em;
+  text-transform: uppercase;
+  color: var(--cream);
+  text-shadow: 0 15px 36px rgba(0, 0, 0, .5);
+}
+
+.fh-hl {
+  display: block;
+}
+
+.fh-mark {
+  width: clamp(40px, 4vw, 56px);
+  height: clamp(40px, 4vw, 56px);
+  overflow: visible;
+  transform-origin: 50% 50%;
+  filter: drop-shadow(0 0 12px rgba(123, 92, 255, .28));
+}
+
+.fh-features {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: clamp(28px, 5vw, 96px);
+  width: 100%;
+  margin-top: clamp(2px, .8vh, 10px);
+}
+
+.fh-feature {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  max-width: 300px;
+  color: var(--white);
+}
+.fh-feature-left { align-items: flex-end; text-align: right; }
+.fh-feature-right { align-items: flex-start; text-align: left; }
+
+.fh-feature .fh-icon {
+  display: block;
+  width: clamp(26px, 2.4vw, 35px);
+  height: auto;
+  margin-bottom: clamp(10px, 1.4vh, 16px);
+}
+
+.fh-feature h2 {
+  margin: 0 0 clamp(6px, 1vh, 10px);
+  font: 700 clamp(15px, 1.1vw + .7rem, 20px)/1.12 'Plus Jakarta Sans', Arial, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: .01em;
+  color: var(--white);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, .4);
+}
+
+.fh-feature p {
+  margin: 0;
+  font: 400 clamp(12px, .4vw + .7rem, 14.5px)/1.5 'Plus Jakarta Sans', Arial, sans-serif;
+  color: rgba(255, 255, 255, .88);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .35);
+}
+
+.fh-actions {
+  margin-top: 0;
+}
+
+@keyframes fh-lineIn {
+  0% { opacity: 0; transform: translateY(.26em); clip-path: inset(100% -30% 0% -30%); }
+  35% { opacity: 1; }
+  90% { clip-path: inset(0% -30% -100% -30%); }
+  100% { opacity: 1; transform: none; clip-path: inset(-80% -30% -100% -30%); }
+}
+@keyframes fh-markIn {
+  from { opacity: 0; transform: scale(.88); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fh-blockInL {
+  from { opacity: 0; transform: translate(-12px, 8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fh-blockInR {
+  from { opacity: 0; transform: translate(12px, 8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .fh-hl1 { animation: fh-lineIn .9s cubic-bezier(.16, 1, .3, 1) .28s both; }
+  .fh-hl2 { animation: fh-lineIn .9s cubic-bezier(.16, 1, .3, 1) .37s both; }
+  .fh-hl3 { animation: fh-lineIn .9s cubic-bezier(.16, 1, .3, 1) .46s both; }
+  .fh-hl4 { animation: fh-lineIn .9s cubic-bezier(.16, 1, .3, 1) .55s both; }
+  .fh-mark { animation: fh-markIn .7s cubic-bezier(.2, .9, .25, 1) .72s both; }
+  .fh-feature-left { animation: fh-blockInL .75s cubic-bezier(.16, 1, .3, 1) .82s both; }
+  .fh-feature-right { animation: fh-blockInR .75s cubic-bezier(.16, 1, .3, 1) .90s both; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .hero-bg-glow,
   .hero-scroll-arrow {
     animation: none;
   }
 }
 
-@media (max-width: 640px) {
-  .hero-center {
-    gap: 18px;
-    padding: 48px 20px;
+/* Phones: features stack instead of sitting side by side, but stay
+   mirror-aligned toward center rather than both going full-left, per this
+   project's own established "keep the mirror, just stack it" convention. */
+@media (max-width: 609px) {
+  .fh-features {
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(20px, 4vh, 32px);
+  }
+  .fh-feature-left,
+  .fh-feature-right {
+    align-items: center;
+    text-align: center;
+  }
+}
+
+/* Very short viewports (landscape phones, short laptop windows with a tall
+   browser chrome): trim vertical gaps a little further so the hero doesn't
+   force excessive scroll, without reintroducing any fixed box to clip
+   against -- this is a tasteful compression, not a correctness fix, since
+   fluid layout no longer has a clipping failure mode at all. */
+@media (max-height: 560px) {
+  .fh-stage {
+    gap: clamp(8px, 1.6vh, 16px);
+  }
+  .fh-stagewrap {
+    padding-block: clamp(16px, 4vh, 32px);
   }
 }

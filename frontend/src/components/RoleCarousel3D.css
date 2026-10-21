@@ -1,0 +1,221 @@
+/* RoleCarousel3D -- generic 3D coverflow-cylinder picker. Pure mechanics
+   (position/rotation/depth/scale/opacity per frame) live in the .jsx;
+   this file is purely visual. See RoleCarousel3D.jsx's own header comment
+   for the coverflow-vs-literal-cylinder reasoning and the accessibility
+   model. Deliberately NOT themed off the app's own light/dark --surface/
+   --ink tokens -- like the Landing hero, this is a sealed dark stage
+   (pure black, restrained indigo/violet/teal) per the user's own pasted
+   spec's explicit color direction, independent of the app's theme toggle. */
+
+.rs3d-viewport {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 460px;
+  outline: none;
+}
+
+.rs3d-scene {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 440px;
+  transform-style: preserve-3d;
+}
+
+.rs3d-card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform-style: preserve-3d;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-family: inherit;
+  cursor: pointer;
+  will-change: transform, opacity;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rs3d-card:focus-visible .rs3d-card-face {
+  outline: 2px solid #8B5CF6;
+  outline-offset: 3px;
+}
+
+.rs3d-depth-layer {
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  pointer-events: none;
+}
+.rs3d-depth-layer--1 {
+  transform: translateZ(-2px);
+  background: #0D0E14;
+}
+.rs3d-depth-layer--2 {
+  transform: translateZ(-4px);
+  background: #07080B;
+}
+
+.rs3d-card-face {
+  position: relative;
+  width: 100%;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  gap: 8px;
+  padding: 26px 24px 24px;
+  border-radius: 22px;
+  background: linear-gradient(165deg, #14151C 0%, #0A0B0F 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  color: #F3F3F7;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rs3d-card--active .rs3d-card-face {
+  border-color: rgba(139, 92, 246, 0.45);
+  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(99, 102, 241, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.rs3d-card-visual {
+  width: 100%;
+  height: 112px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2px;
+}
+
+.rs3d-card-badge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #9D9DA6;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+
+.rs3d-card-role-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8B5CF6;
+  margin-top: 6px;
+}
+
+.rs3d-card-heading {
+  font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+  font-size: 25px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.rs3d-card-desc {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #B4B4BC;
+}
+
+.rs3d-card-cta {
+  margin-top: auto;
+  padding-top: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #14B8A6;
+}
+
+.rs3d-dots {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 1200;
+}
+
+.rs3d-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(255, 255, 255, 0.22);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.rs3d-dot:focus-visible {
+  outline: 2px solid #8B5CF6;
+  outline-offset: 2px;
+}
+.rs3d-dot--active {
+  background: #8B5CF6;
+  transform: scale(1.3);
+}
+
+@media (max-width: 1023px) {
+  .rs3d-viewport {
+    min-height: 410px;
+  }
+  .rs3d-scene {
+    min-height: 390px;
+  }
+  .rs3d-card-face {
+    min-height: 360px;
+    padding: 22px 20px 20px;
+  }
+  .rs3d-card-heading {
+    font-size: 21px;
+  }
+  .rs3d-card-visual {
+    height: 92px;
+  }
+}
+
+@media (max-width: 639px) {
+  .rs3d-viewport {
+    min-height: 380px;
+  }
+  .rs3d-scene {
+    min-height: 360px;
+  }
+  .rs3d-card-face {
+    min-height: 330px;
+    padding: 20px 18px 20px;
+    gap: 6px;
+  }
+  .rs3d-card-heading {
+    font-size: 19px;
+  }
+  .rs3d-card-desc {
+    font-size: 12.5px;
+  }
+  .rs3d-card-visual {
+    height: 76px;
+  }
+  .rs3d-dots {
+    bottom: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rs3d-card-face {
+    transition: none;
+  }
+}

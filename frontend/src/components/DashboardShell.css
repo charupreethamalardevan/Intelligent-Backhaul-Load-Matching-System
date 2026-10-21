@@ -10,8 +10,8 @@
   --ds-sidebar-w: 232px;
   --ds-sidebar-bg: #0E0F14;
   --ds-sidebar-bg-2: #15161F;
-  --ds-sidebar-text: #A6A9BA;
-  --ds-sidebar-text-dim: #5E6175;
+  --ds-sidebar-text: #C7C9DA;
+  --ds-sidebar-text-dim: #8C8FA6;
   --ds-sidebar-active-bg: color-mix(in srgb, var(--primary) 20%, transparent);
   min-height: 100vh;
   background: var(--base);
@@ -88,9 +88,9 @@
 }
 
 .ds-nav-title {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ds-sidebar-text-dim);
   padding: 8px 10px 6px;
@@ -106,8 +106,8 @@
   color: var(--ds-sidebar-text);
   padding: 9px 11px;
   border-radius: var(--radius-sm);
-  font-size: 13.5px;
-  font-weight: 500;
+  font-size: 14.5px;
+  font-weight: 600;
   text-align: left;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
@@ -126,7 +126,7 @@
 .ds-nav-item-active {
   background: var(--ds-sidebar-active-bg);
   color: #fff;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .ds-nav-item-active svg {

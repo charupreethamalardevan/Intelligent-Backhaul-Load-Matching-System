@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { adminFetch, getAdminToken, setAdminToken } from '../lib/adminApi.js';
+import { listDocuments, verifyDocument, rejectDocument, DOCUMENT_TYPE_LABELS } from '../lib/documentApi.js';
 import { timeAgo, bucketByDay } from '../lib/time.js';
 import DashboardShell from '../components/DashboardShell.jsx';
 import StatCard from '../components/StatCard.jsx';
@@ -12,6 +13,7 @@ import {
   IconCheckCircle,
   IconX,
   IconKey,
+  IconFile,
 } from '../components/icons.jsx';
 
 // Admin is deliberately separate from the regular app: its own token, its
@@ -73,7 +75,7 @@ function AdminLogin({ onLoggedIn }) {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
           <input className="input" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} required />
           <input className="input" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-          {error && <p style={{ color: '#DC2626', fontSize: 13 }}>{error}</p>}
+          {error && <p style={{ color: '#DC2626', fontSize: 14 }}>{error}</p>}
           <button className="btn btn-primary" type="submit" disabled={loading}>
             {loading ? 'Logging in...' : 'Log in'}
           </button>
@@ -93,7 +95,7 @@ const ROLE_LABELS = {
 
 const ROLE_ORDER = ['business_poster', 'individual_poster', 'fleet_owner', 'owner_driver', 'driver'];
 
-const NAV_SECTIONS = (pendingCount) => [
+const NAV_SECTIONS = (pendingCount, pendingDocCount) => [
   { items: [{ key: 'overview', label: 'Overview', icon: IconGrid }] },
   {
     title: 'Accounts',
@@ -104,6 +106,10 @@ const NAV_SECTIONS = (pendingCount) => [
       { key: 'all', label: 'All accounts', icon: IconUsers },
     ],
   },
+  {
+    title: 'Documents',
+    items: [{ key: 'documents', label: 'Document review', icon: IconFile, badge: pendingDocCount }],
+  },
 ];
 
 const SECTION_META = {
@@ -112,6 +118,7 @@ const SECTION_META = {
   approved: { title: 'Approved accounts', subtitle: 'Accounts cleared and able to use IBLMS.' },
   rejected: { title: 'Rejected accounts', subtitle: 'Accounts that did not pass document review.' },
   all: { title: 'All accounts', subtitle: 'Every signed-up account, regardless of status.' },
+  documents: { title: 'Document review', subtitle: 'Verify or reject uploaded ownership, license and KYC documents.' },
 };
 
 function AdminDashboard({ onLogout }) {
@@ -121,6 +128,10 @@ function AdminDashboard({ onLogout }) {
   const [sectionUsers, setSectionUsers] = useState([]);
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState(null);
+
+  const [documents, setDocuments] = useState([]);
+  const [docBusyId, setDocBusyId] = useState(null);
+  const [docError, setDocError] = useState(null);
 
   function loadStats() {
     adminFetch('/admin/stats').then(setStats).catch(() => {});
@@ -140,9 +151,20 @@ function AdminDashboard({ onLogout }) {
       .catch((err) => setError(err.message));
   }
 
+  // Fetched once (no status filter), same "overview badge needs it
+  // regardless of which tab is open" reasoning as loadAllUsers above --
+  // also reused as the Documents tab's own list, refetched after a
+  // verify/reject action.
+  function loadDocuments() {
+    listDocuments()
+      .then(setDocuments)
+      .catch((err) => setDocError(err.message));
+  }
+
   useEffect(loadStats, []);
   useEffect(loadAllUsers, []);
   useEffect(loadSectionUsers, [section]);
+  useEffect(loadDocuments, []);
 
   async function act(id, action) {
     setBusyId(id);
@@ -158,6 +180,22 @@ function AdminDashboard({ onLogout }) {
       setBusyId(null);
     }
   }
+
+  async function actOnDocument(id, action) {
+    setDocBusyId(id);
+    setDocError(null);
+    try {
+      if (action === 'verify') await verifyDocument(id);
+      else await rejectDocument(id);
+      loadDocuments();
+    } catch (err) {
+      setDocError(err.message);
+    } finally {
+      setDocBusyId(null);
+    }
+  }
+
+  const pendingDocCount = useMemo(() => documents.filter((d) => d.verificationStatus === 'pending').length, [documents]);
 
   const roleBreakdown = useMemo(
     () =>
@@ -192,7 +230,7 @@ function AdminDashboard({ onLogout }) {
     <DashboardShell
       brandMark="IB"
       brandName="IBLMS Admin"
-      navSections={NAV_SECTIONS(stats?.pending)}
+      navSections={NAV_SECTIONS(stats?.pending, pendingDocCount)}
       activeKey={section}
       onNavigate={setSection}
       pageTitle={meta.title}
@@ -200,6 +238,7 @@ function AdminDashboard({ onLogout }) {
       userLabel="Admin"
       userSub="Super admin"
       onLogout={onLogout}
+      notificationsEnabled={false}
     >
       {section === 'overview' ? (
         <>
@@ -233,6 +272,8 @@ function AdminDashboard({ onLogout }) {
             <MiniBarChart data={roleBreakdown} />
           </div>
         </>
+      ) : section === 'documents' ? (
+        <DocumentsSection documents={documents} busyId={docBusyId} onAct={actOnDocument} error={docError} />
       ) : (
         <AccountsSection section={section} users={sectionUsers} busyId={busyId} onAct={act} error={error} />
       )}
@@ -240,20 +281,69 @@ function AdminDashboard({ onLogout }) {
   );
 }
 
+function DocumentsSection({ documents, busyId, onAct, error }) {
+  return (
+    <>
+      {error && <p style={{ color: '#DC2626', fontSize: 14, marginBottom: 10 }}>{error}</p>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {documents.map((d) => (
+          <div key={d._id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 15 }}>
+                {DOCUMENT_TYPE_LABELS[d.documentType] || d.documentType}{' '}
+                <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--muted)' }}>
+                  · {d.userId?.name || d.userId?.email || 'Unknown user'} ({ROLE_LABELS[d.userId?.role] || d.userId?.role || 'unknown role'})
+                </span>
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>{d.filename}</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  padding: '4px 10px',
+                  borderRadius: 999,
+                  background: 'var(--accent-soft)',
+                  color: 'var(--primary)',
+                }}
+              >
+                {d.verificationStatus}
+              </span>
+              {d.verificationStatus === 'pending' && (
+                <>
+                  <button className="btn btn-primary" disabled={busyId === d._id} onClick={() => onAct(d._id, 'verify')}>
+                    Verify
+                  </button>
+                  <button className="btn btn-outline" disabled={busyId === d._id} onClick={() => onAct(d._id, 'reject')}>
+                    Reject
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        ))}
+        {documents.length === 0 && <p style={{ fontSize: 14, color: 'var(--muted)' }}>No documents uploaded yet.</p>}
+      </div>
+    </>
+  );
+}
+
 function AccountsSection({ section, users, busyId, onAct, error }) {
   return (
     <>
-      {error && <p style={{ color: '#DC2626', fontSize: 13, marginBottom: 10 }}>{error}</p>}
+      {error && <p style={{ color: '#DC2626', fontSize: 14, marginBottom: 10 }}>{error}</p>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {users.map((u) => (
           <div key={u.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 14 }}>
-                {u.name || u.companyName || u.email} <span style={{ fontWeight: 600, fontSize: 12, color: 'var(--muted)' }}>({ROLE_LABELS[u.role] || u.role})</span>
+              <div style={{ fontWeight: 800, fontSize: 15 }}>
+                {u.name || u.companyName || u.email} <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--muted)' }}>({ROLE_LABELS[u.role] || u.role})</span>
               </div>
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{u.email}</div>
+              <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>{u.email}</div>
               {u.documents && u.documents.length > 0 && (
-                <div style={{ fontSize: 12, color: 'var(--primary)', marginTop: 4 }}>
+                <div style={{ fontSize: 13, color: 'var(--primary)', marginTop: 4 }}>
                   Document(s): {u.documents.map((d) => d.filename).join(', ')}
                 </div>
               )}
@@ -261,7 +351,7 @@ function AccountsSection({ section, users, busyId, onAct, error }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span
                 style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 700,
                   textTransform: 'uppercase',
                   padding: '4px 10px',
@@ -285,7 +375,7 @@ function AccountsSection({ section, users, busyId, onAct, error }) {
             </div>
           </div>
         ))}
-        {users.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)' }}>No {section === 'all' ? '' : section} accounts.</p>}
+        {users.length === 0 && <p style={{ fontSize: 14, color: 'var(--muted)' }}>No {section === 'all' ? '' : section} accounts.</p>}
       </div>
     </>
   );

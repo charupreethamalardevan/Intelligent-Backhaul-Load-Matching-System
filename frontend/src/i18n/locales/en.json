@@ -16,7 +16,8 @@
     "toggleTheme": "Toggle theme",
     "chooseLanguage": "Choose language",
     "track": "Track",
-    "hide": "Hide"
+    "hide": "Hide",
+    "close": "Close"
   },
   "auth": {
     "loginTitle": "Log in to IBLMS",
@@ -36,18 +37,63 @@
       "nearbyLoads": "Nearby Loads",
       "myRequests": "My Requests",
       "myLoads": "My Loads",
-      "findVehicles": "Find Vehicles"
+      "findVehicles": "Find Vehicles",
+      "tripPlanner": "Trip Planner",
+      "currentTrip": "Current Trip",
+      "history": "History",
+      "payments": "Payments",
+      "trendAnalysis": "Trend Analysis"
     },
     "section": {
-      "overview": { "title": "Overview", "subtitleFleet": "Your fleet at a glance.", "subtitlePoster": "Your loads and bookings at a glance." },
-      "vehicles": { "title": "Vehicles", "subtitle": "Register trucks and assign them to drivers." },
-      "trips": { "title": "Trips", "subtitle": "Plan a vehicle’s availability for a return route." },
-      "drivers": { "title": "Drivers", "subtitle": "Invite drivers and see who’s assigned where." },
-      "findLoads": { "title": "Find Loads", "subtitle": "Ranked backhaul matches for one of your trips." },
-      "nearbyLoads": { "title": "Nearby Loads", "subtitle": "Browse open loads near any place." },
-      "requests": { "title": "My Requests", "subtitle": "Track every booking through its lifecycle." },
-      "loads": { "title": "My Loads", "subtitle": "Post a load and track its status." },
-      "findVehicles": { "title": "Find Vehicles", "subtitle": "Ranked backhaul vehicle matches for one of your open loads." }
+      "overview": {
+        "title": "Overview",
+        "subtitleFleet": "Your fleet at a glance.",
+        "subtitlePoster": "Your loads and bookings at a glance."
+      },
+      "vehicles": {
+        "title": "Vehicles",
+        "subtitle": "Register trucks and assign them to drivers."
+      },
+      "trips": {
+        "title": "Trips",
+        "subtitle": "Plan a vehicle’s availability for a return route."
+      },
+      "drivers": {
+        "title": "Drivers",
+        "subtitle": "Invite drivers and see who’s assigned where."
+      },
+      "findLoads": {
+        "title": "Find Loads",
+        "subtitle": "Ranked backhaul matches for one of your trips."
+      },
+      "nearbyLoads": {
+        "title": "Nearby Loads",
+        "subtitle": "Browse open loads near any place."
+      },
+      "requests": {
+        "title": "My Requests",
+        "subtitle": "Track every booking through its lifecycle."
+      },
+      "currentTrip": {
+        "title": "Current Trip",
+        "subtitle": "Every booking still moving, with live actions, navigation and a demo simulate option."
+      },
+      "history": {
+        "title": "History",
+        "subtitle": "Completed, rejected and cancelled bookings — a read-only record of what already happened."
+      },
+      "payments": {
+        "title": "Payments",
+        "subtitle": "Record payment and leave a rating once a trip is over."
+      },
+      "loads": {
+        "title": "My Loads",
+        "subtitle": "Post a load and track its status."
+      },
+      "findVehicles": {
+        "title": "Find Vehicles",
+        "subtitle": "Ranked backhaul vehicle matches for one of your open loads."
+      }
     }
   },
   "status": {
@@ -74,7 +120,17 @@
     "source": "Pickup",
     "destination": "Destination",
     "offlineNotice": "You’re offline — showing the last map tiles seen for this area.",
-    "unavailable": "Map unavailable for this trip."
+    "unavailable": "Map unavailable for this trip.",
+    "startNavigation": "Start Navigation"
+  },
+  "sim": {
+    "fastForward": "Simulate",
+    "running": "Simulating...",
+    "hint": "Opens a big step-by-step simulation that fast-forwards this booking to Completed, for a demo.",
+    "stopped": "Simulation stopped: {{message}}",
+    "modalTitle": "Simulate booking",
+    "start": "Start simulation",
+    "done": "Booking completed — head to Payments to settle it."
   },
   "ml": {
     "compatibilityLabel": "ML Compatibility",
@@ -88,6 +144,7 @@
       "help": "Register a truck and assign it to a driver.",
       "number": "Vehicle number",
       "numberPlaceholder": "e.g. TN 09 AB 1234",
+      "numberLocked": "Vehicle number cannot be changed after registration. Remove this vehicle and add a new one if it changed.",
       "type": "Vehicle type",
       "capacity": "Capacity (tonnes)",
       "capacityPlaceholder": "e.g. 9",
@@ -103,7 +160,12 @@
       "submitting": "Adding...",
       "remove": "Remove",
       "noneYet": "No vehicles added yet.",
-      "unassigned": "Unassigned"
+      "unassigned": "Unassigned",
+      "edit": "Edit",
+      "editHeading": "Edit vehicle",
+      "submitUpdate": "Save changes",
+      "updating": "Saving...",
+      "capReached": "Individual Owner accounts can register only one vehicle. Edit or remove your existing vehicle to replace it."
     },
     "trip": {
       "heading": "Trips",
@@ -185,12 +247,30 @@
       "household_goods": "Household goods"
     },
     "vehicleTypes": {
-      "mini_truck": { "label": "Mini truck", "hint": "Small loads, city and short-haul runs." },
-      "open_truck": { "label": "Open truck", "hint": "General and heavy goods, no weather protection." },
-      "container_truck": { "label": "Container truck", "hint": "Sealed cargo, long-haul and household goods." },
-      "refrigerated_truck": { "label": "Refrigerated truck", "hint": "Perishables needing a cold chain." },
-      "tanker": { "label": "Tanker", "hint": "Liquid or bulk cargo." },
-      "trailer": { "label": "Trailer", "hint": "Heavy machinery and oversized loads." }
+      "mini_truck": {
+        "label": "Mini truck",
+        "hint": "Small loads, city and short-haul runs."
+      },
+      "open_truck": {
+        "label": "Open truck",
+        "hint": "General and heavy goods, no weather protection."
+      },
+      "container_truck": {
+        "label": "Container truck",
+        "hint": "Sealed cargo, long-haul and household goods."
+      },
+      "refrigerated_truck": {
+        "label": "Refrigerated truck",
+        "hint": "Perishables needing a cold chain."
+      },
+      "tanker": {
+        "label": "Tanker",
+        "hint": "Liquid or bulk cargo."
+      },
+      "trailer": {
+        "label": "Trailer",
+        "hint": "Heavy machinery and oversized loads."
+      }
     }
   },
   "charts": {

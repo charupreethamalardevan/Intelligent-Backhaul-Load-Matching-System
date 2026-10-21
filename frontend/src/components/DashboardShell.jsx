@@ -2,17 +2,27 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IconBell, IconLogout, IconMenu, IconMoon, IconSearch, IconSun, IconX } from './icons.jsx';
 import LanguageSwitcher from './LanguageSwitcher.jsx';
+import NotificationBell from './NotificationBell.jsx';
 import { useTheme } from '../lib/theme.js';
+import ParticleBackground, { PARTICLE_COLORS } from './ParticleBackground.jsx';
 import './DashboardShell.css';
 
-// Round-1 UI/UX rebuild: the always-on drifting ParticleBackground canvas
-// was deliberately REMOVED from the operational app shell here. The design
-// brief is explicit that cinematic effects belong on the marketing/landing
-// page, not on every dashboard screen ("do not carry cinematic effects
-// into the application... avoid constant movement") -- a calm, still
-// surface is the correct choice for a screen people scan data on all day.
-// The component file itself is untouched and still used by Landing.jsx's
-// hero.
+// Round-1 UI/UX rebuild REMOVED the always-on drifting ParticleBackground
+// canvas from this operational app shell -- the design brief at the time
+// was explicit that cinematic effects belonged on the marketing/landing
+// page only, not a screen people scan data on all day. Round 5: the user
+// explicitly overrode that, twice, asking for the moving particle
+// background "in all screen" -- so it's back here, confined to `.ds-main`
+// (mounted as its first child, before the topbar, sized to the content
+// area to the right of the sidebar -- never the sidebar itself, which
+// stays the quiet near-black chrome it's always been) and multi-colored
+// via `PARTICLE_COLORS` to match the Antigravity reference. It sits at
+// `z-index: -1` (`ParticleBackground.css`'s `--confined` variant) behind
+// `.ds-topbar`'s translucent bar and every data card/table's own opaque
+// background, so it only actually shows in the margins around them --
+// deliberately kept that subtle rather than density-matched to the
+// marketing pages, since real data still needs to stay the most legible
+// thing on these screens.
 
 // Shared sidebar + topbar shell for the Admin / Fleet / Poster dashboards.
 // `navSections` is [{ title?, items: [{ key, label, icon, badge? }] }].
@@ -29,6 +39,11 @@ export default function DashboardShell({
   userLabel,
   userSub,
   onLogout,
+  // Admin has no User row (a single shared env-var login, see
+  // AdminPage.jsx) so it has nothing for routes/notifications.js to key
+  // on -- AdminPage passes false here and keeps the old static bell;
+  // Fleet/Poster dashboards (real users) get the real, wired-up one.
+  notificationsEnabled = true,
   children,
 }) {
   const { t } = useTranslation();
@@ -95,6 +110,7 @@ export default function DashboardShell({
       </aside>
 
       <div className="ds-main">
+        <ParticleBackground confined count={34} colors={PARTICLE_COLORS} />
         <header className="ds-topbar">
           <div className="ds-topbar-left">
             <button className="ds-icon-btn ds-mobile-only" onClick={() => setMobileOpen(true)} aria-label="Open menu">
@@ -111,9 +127,13 @@ export default function DashboardShell({
               <input className="ds-search-input" placeholder={t('common.search')} disabled title="Search coming soon" />
             </div>
             <LanguageSwitcher />
-            <button className="ds-icon-btn" title={t('common.notifications')} aria-label={t('common.notifications')}>
-              <IconBell size={17} />
-            </button>
+            {notificationsEnabled ? (
+              <NotificationBell />
+            ) : (
+              <button className="ds-icon-btn" title={t('common.notifications')} aria-label={t('common.notifications')}>
+                <IconBell size={17} />
+              </button>
+            )}
             <button className="ds-icon-btn" onClick={() => setDark((d) => !d)} title={t('common.toggleTheme')} aria-label={t('common.toggleTheme')}>
               {dark ? <IconSun size={17} /> : <IconMoon size={17} />}
             </button>

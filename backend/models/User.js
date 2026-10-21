@@ -35,6 +35,15 @@ const userSchema = new mongoose.Schema(
     // Only set for role === 'driver' (Fleet Driver), via the invite code.
     fleetOwnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     inviteCodeId: { type: mongoose.Schema.Types.ObjectId, ref: 'InviteCode' },
+
+    // ER-diagram field USERS.rating_avg -- a cached aggregate of every
+    // Rating row where this user is the ratedUser (models/Rating.js),
+    // recomputed by routes/ratings.js whenever a new rating comes in
+    // (never aggregated on every read). Feeds services/matching.js's
+    // scoreReliability() -- null until this user has received at least one
+    // rating, same "no fabricated track record" default that function
+    // already uses.
+    ratingAvg: { type: Number, default: null },
   },
   { timestamps: true },
 );

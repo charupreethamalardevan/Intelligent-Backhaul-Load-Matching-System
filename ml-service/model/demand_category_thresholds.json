@@ -1,0 +1,5 @@
+{
+  "lowMax": 14.04,
+  "mediumMax": 18.05,
+  "notes": "predicted_load_count_7d <= lowMax => Low; <= mediumMax => Medium; above => High. Tertiles of the training dataset's own label distribution."
+}

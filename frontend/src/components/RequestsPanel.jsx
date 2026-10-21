@@ -1,7 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { listRequests, updateRequestStatus, STATUS_LABELS, NEXT_ACTIONS } from '../lib/requestApi.js';
-import TripMap from './TripMap.jsx';
+import { timeAgo } from '../lib/time.js';
+import TripMapModal from './TripMapModal.jsx';
+import SimulateModal from './SimulateModal.jsx';
+import { IconZap, IconCheckCircle, IconX } from './icons.jsx';
+import './dataViews.css';
 
 const ACTION_LABELS = {
   requested: 'Approve',
@@ -16,6 +20,12 @@ const ACTION_LABELS = {
 };
 
 const TRACKABLE_STATUSES = ['confirmed', 'pickup', 'in_transit', 'delivered', 'completed'];
+
+// A booking is "history" once it's reached one of these -- there is no
+// way back out of any of them (see backend/routes/requests.js's
+// ALLOWED_TRANSITIONS, which never lists a next state for any of the
+// three). Everything else is still moving and belongs on "Current Trip".
+const TERMINAL_STATUSES = ['completed', 'rejected', 'cancelled'];
 
 // Whether `user` is the vehicle side of this request -- the same rule
 // routes/requests.js's sideOfCaller() applies server-side, reimplemented
@@ -33,18 +43,31 @@ function isVehicleSide(r, user) {
   return String(r.vehicleOwnerId) === String(user.id);
 }
 
-const STATUS_COLORS = {
-  pending_fleet_approval: '#D97706',
-  requested: 'var(--muted)',
-  accepted: 'var(--primary)',
-  confirmed: 'var(--primary)',
-  pickup: '#D97706',
-  in_transit: '#D97706',
-  delivered: 'var(--primary)',
-  completed: 'var(--primary)',
-  rejected: '#DC2626',
-  cancelled: '#DC2626',
-};
+// Same tone vocabulary FleetDashboard's status chips already use
+// (open/pending/active/primary/done/rejected) -- kept here as a pure
+// display mapping over the real backend status, nothing invented.
+function requestTone(status) {
+  switch (status) {
+    case 'pending_fleet_approval':
+      return 'pending';
+    case 'requested':
+      return 'open';
+    case 'accepted':
+    case 'confirmed':
+      return 'primary';
+    case 'pickup':
+    case 'in_transit':
+    case 'delivered':
+      return 'active';
+    case 'completed':
+      return 'done';
+    case 'rejected':
+    case 'cancelled':
+      return 'rejected';
+    default:
+      return 'open';
+  }
+}
 
 // Shared between FleetDashboard and PosterDashboard -- the booking
 // lifecycle (SRS Section 13) is symmetric, both sides see the same list
@@ -55,12 +78,36 @@ const STATUS_COLORS = {
 // is visible to both the Fleet Driver who created it and their Fleet
 // Owner, but only the Fleet Owner may approve/reject it -- the driver
 // only gets a Cancel button for their own request.
-export default function RequestsPanel({ user }) {
+//
+// `mode` splits this single list into two separate, real-app-style
+// dashboards instead of one flat feed mixing everything together:
+//   'current' (default) -- every booking still moving (not yet completed,
+//      rejected or cancelled). Gets the full action buttons, "Start
+//      Navigation", and the "Simulate" demo control.
+//   'history' -- every booking that's done, one way or another. Fully
+//      read-only -- no action buttons, no Start Navigation, no Simulate --
+//      just a record of what happened and when.
+// Recording payment for a completed booking lives in its own dashboard
+// now (PaymentsPanel.jsx), not inline here.
+//
+// `focusId` (optional) is a request id to scroll to and briefly highlight
+// on mount -- used by FleetDashboard when a Trip Planner row with a live
+// booking is clicked, so "open in Current Trip" actually lands the user
+// on the right row instead of just switching tabs. `onFocusHandled` lets
+// the parent clear its own copy of that id once this panel has it, so a
+// later unrelated visit to Current Trip doesn't re-highlight a stale row.
+export default function RequestsPanel({ user, mode = 'current', focusId = null, onFocusHandled }) {
   const { t } = useTranslation();
   const [requests, setRequests] = useState([]);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
-  const [trackingId, setTrackingId] = useState(null);
+  // The request currently open in the "Start Navigation" popup, or in the
+  // "Simulate" dialog (or null when closed) -- neither sits inline on the
+  // row itself anymore, both only ever show once explicitly asked for.
+  const [navigatingId, setNavigatingId] = useState(null);
+  const [simulatingId, setSimulatingId] = useState(null);
+  const [highlightId, setHighlightId] = useState(null);
+  const rowRefs = useRef({});
 
   function load() {
     listRequests()
@@ -69,6 +116,24 @@ export default function RequestsPanel({ user }) {
   }
 
   useEffect(load, []);
+
+  useEffect(() => {
+    if (!focusId) return undefined;
+    setHighlightId(focusId);
+    onFocusHandled?.();
+    const timer = setTimeout(() => setHighlightId(null), 2800);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only the id
+    // itself should re-trigger this, not onFocusHandled's identity.
+  }, [focusId]);
+
+  useEffect(() => {
+    if (highlightId && rowRefs.current[highlightId]) {
+      rowRefs.current[highlightId].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [highlightId, requests]);
+
+  const visibleRequests = requests.filter((r) => (mode === 'history' ? TERMINAL_STATUSES.includes(r.status) : !TERMINAL_STATUSES.includes(r.status)));
 
   async function act(id, status) {
     setError(null);
@@ -83,84 +148,126 @@ export default function RequestsPanel({ user }) {
     }
   }
 
-  if (requests.length === 0) {
-    return <p style={{ fontSize: 13, color: 'var(--muted)' }}>No booking requests yet.</p>;
-  }
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {error && <p style={{ color: '#DC2626', fontSize: 13 }}>{error}</p>}
-      {requests.map((r) => {
-        const trip = r.tripId;
-        const load = r.loadId;
-        let actions = NEXT_ACTIONS[r.status] || [];
-        let hint = null;
-        if (r.status === 'pending_fleet_approval') {
-          if (user?.role === 'fleet_owner') {
-            actions = ['requested', 'rejected'];
-            hint = 'One of your drivers requested this load. Approve to send it on to the Load Poster, or reject it.';
-          } else {
-            actions = ['cancelled'];
-            hint = "Waiting for your Fleet Owner to approve this before it's sent to the Load Poster.";
+    <div className="dv-panel">
+      <div className="dv-panel-head">
+        <h2>
+          {mode === 'history'
+            ? `${t('dashboard.section.history.title', 'History')} · ${visibleRequests.length}`
+            : `${t('dashboard.section.currentTrip.title', 'Current Trip')} · ${visibleRequests.length}`}
+        </h2>
+      </div>
+      {error && <p style={{ color: '#DC2626', fontSize: 14, padding: '0 18px 10px' }}>{error}</p>}
+      {visibleRequests.length === 0 ? (
+        <div className="dv-empty">
+          {mode === 'history'
+            ? t('dashboard.history.noneYet', 'No finished bookings yet -- completed, rejected and cancelled trips will show up here.')
+            : t('dashboard.requests.noneYet', 'No booking requests yet.')}
+        </div>
+      ) : (
+        visibleRequests.map((r) => {
+          const trip = r.tripId;
+          const load = r.loadId;
+          let actions = NEXT_ACTIONS[r.status] || [];
+          let hint = null;
+          const isRequester = String(r.requestedBy) === String(user?.id);
+          if (r.status === 'pending_fleet_approval') {
+            if (user?.role === 'fleet_owner') {
+              actions = ['requested', 'rejected'];
+              hint = 'One of your drivers requested this load. Approve to send it on to the Load Poster, or reject it.';
+            } else {
+              actions = ['cancelled'];
+              hint = "Waiting for your Fleet Owner to approve this before it's sent to the Load Poster.";
+            }
+          } else if (r.status === 'requested') {
+            // The backend (matches.js) refuses to let whoever created a
+            // request accept/reject it themselves -- "that's up to the
+            // other party" -- so the requester only ever gets Cancel here,
+            // and the other side only ever gets Accept/Reject. Previously
+            // this showed NEXT_ACTIONS['requested'] (all three buttons) to
+            // BOTH sides unconditionally, so the requester could click
+            // "Accept" on their own request and get a 403 back from the
+            // server for a button that was never going to work for them.
+            if (isRequester) {
+              actions = ['cancelled'];
+              hint = t('dashboard.requests.waitingOtherSide', 'Waiting for the other party to accept or reject.');
+            } else {
+              actions = ['accepted', 'rejected'];
+            }
           }
-        }
-        return (
-          <div key={r._id} className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 14 }}>
-                  {trip ? `${trip.source} → ${trip.destination}` : 'Trip removed'}
-                  <span style={{ color: 'var(--muted)', fontWeight: 400 }}> carrying </span>
-                  {load ? `${load.pickupLocation} → ${load.deliveryLocation}` : 'Load removed'}
+          const canSimulate = mode === 'current' && trip && !TERMINAL_STATUSES.includes(r.status);
+          const tone = requestTone(r.status);
+          const rowClass = mode === 'history' ? `dv-req-row dv-req-row-history tone-${tone}` : 'dv-req-row';
+          return (
+            <div
+              key={r._id}
+              ref={(el) => {
+                rowRefs.current[r._id] = el;
+              }}
+              className={`${rowClass}${highlightId === r._id ? ' dv-req-row-highlight' : ''}`}
+            >
+              <div className="dv-req-top">
+                <div>
+                  <div className="dv-req-route">
+                    {trip ? `${trip.source} → ${trip.destination}` : 'Trip removed'}
+                    <span className="sep"> carrying </span>
+                    {load ? `${load.pickupLocation} → ${load.deliveryLocation}` : 'Load removed'}
+                  </div>
+                  <div className="dv-req-sub">
+                    Match score {r.matchScore} · {load ? `${load.cargoType}, ${load.cargoWeightTonnes}t` : ''}
+                    {r.profitability && !r.profitability.error ? ` · Est. profit ₹${r.profitability.estimatedProfit}` : ''}
+                  </div>
+                  {hint && <div className="dv-req-hint">{hint}</div>}
                 </div>
-                <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>
-                  Match score {r.matchScore} · {load ? `${load.cargoType}, ${load.cargoWeightTonnes}t` : ''}
-                  {r.profitability && !r.profitability.error ? ` · Est. profit ₹${r.profitability.estimatedProfit}` : ''}
+                <div className="dv-req-meta">
+                  <span className={`dv-status-chip tone-${tone}`}>
+                    {tone === 'done' && <IconCheckCircle size={11} />} {tone === 'rejected' && <IconX size={11} />}{' '}
+                    {t(`status.${r.status}`, STATUS_LABELS[r.status] || r.status)}
+                  </span>
+                  {mode === 'history' && <span className="dv-req-time">{timeAgo(r.updatedAt || r.createdAt)}</span>}
                 </div>
-                {hint && <div style={{ fontSize: 12, color: '#D97706', marginTop: 4, fontStyle: 'italic' }}>{hint}</div>}
               </div>
-              <span
-                style={{
-                  fontSize: 11.5,
-                  fontWeight: 800,
-                  color: STATUS_COLORS[r.status] || 'var(--muted)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.03em',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {t(`status.${r.status}`, STATUS_LABELS[r.status] || r.status)}
-              </span>
-            </div>
-            {(actions.length > 0 || (TRACKABLE_STATUSES.includes(r.status) && trip)) && (
-            <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-              {actions.map((a) => (
-                <button
-                  key={a}
-                  className={a === 'rejected' || a === 'cancelled' ? 'btn btn-outline' : 'btn btn-primary'}
-                  style={{ fontSize: 12 }}
-                  disabled={busyId === r._id}
-                  onClick={() => act(r._id, a)}
-                >
-                  {ACTION_LABELS[a] || a}
-                </button>
-              ))}
-              {TRACKABLE_STATUSES.includes(r.status) && trip && (
-                <button
-                  type="button"
-                  className="btn btn-outline"
-                  style={{ fontSize: 12 }}
-                  onClick={() => setTrackingId(trackingId === r._id ? null : r._id)}
-                >
-                  {trackingId === r._id ? t('common.hide') : t('common.track')}
-                </button>
+              {mode === 'current' && (actions.length > 0 || (TRACKABLE_STATUSES.includes(r.status) && trip) || canSimulate) && (
+                <div className="dv-req-actions">
+                  {actions.map((a) => (
+                    <button
+                      key={a}
+                      className={a === 'rejected' || a === 'cancelled' ? 'btn btn-outline' : 'btn btn-primary'}
+                      style={{ fontSize: 13 }}
+                      disabled={busyId === r._id}
+                      onClick={() => act(r._id, a)}
+                    >
+                      {ACTION_LABELS[a] || a}
+                    </button>
+                  ))}
+                  {TRACKABLE_STATUSES.includes(r.status) && trip && (
+                    <button type="button" className="btn btn-outline" style={{ fontSize: 13 }} onClick={() => setNavigatingId(r._id)}>
+                      {t('map.startNavigation', 'Start Navigation')}
+                    </button>
+                  )}
+                  {canSimulate && (
+                    <button
+                      type="button"
+                      className="btn btn-outline dv-sim-btn"
+                      style={{ fontSize: 13 }}
+                      title={t('sim.hint', 'Opens a big step-by-step simulation that fast-forwards this booking to Completed, for a demo.')}
+                      onClick={() => setSimulatingId(r._id)}
+                    >
+                      <IconZap size={13} /> {t('sim.fastForward', 'Simulate')}
+                    </button>
+                  )}
+                </div>
               )}
             </div>
-            )}
-            {trackingId === r._id && <TripMap request={r} canShareLocation={isVehicleSide(r, user)} />}
-          </div>
-        );
-      })}
+          );
+        })
+      )}
+      <TripMapModal
+        request={requests.find((r) => r._id === navigatingId) || null}
+        canShareLocation={isVehicleSide(requests.find((r) => r._id === navigatingId) || {}, user)}
+        onClose={() => setNavigatingId(null)}
+      />
+      <SimulateModal request={requests.find((r) => r._id === simulatingId) || null} onClose={() => setSimulatingId(null)} onAdvance={load} />
     </div>
   );
 }

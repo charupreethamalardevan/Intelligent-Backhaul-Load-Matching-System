@@ -41,6 +41,16 @@ function requireFleetOwner(req, res, next) {
 // POST /api/vehicles -- register a new vehicle (SRS Section 6: vehicle profile).
 router.post('/', requireOwnerRole, async (req, res) => {
   try {
+    // An Individual Owner (owner_driver) drives one truck -- enforced
+    // server-side here, not just hidden/disabled in the UI, since the UI
+    // check alone would be bypassable via a direct API call. A Fleet
+    // Owner has no such cap.
+    if (req.user.role === 'owner_driver') {
+      const existingCount = await Vehicle.countDocuments({ ownerId: req.user.sub });
+      if (existingCount >= 1) {
+        return res.status(409).json({ error: 'An Individual Owner account can register only one vehicle. Edit or remove your existing vehicle to replace it.' });
+      }
+    }
     const { vehicleNumber, vehicleType, maxCapacityTonnes, fuelType, cargoCompatibility, driverName, driverPhone } = req.body;
     if (!vehicleNumber || !vehicleType || !maxCapacityTonnes) {
       return res.status(400).json({ error: 'vehicleNumber, vehicleType and maxCapacityTonnes are required.' });

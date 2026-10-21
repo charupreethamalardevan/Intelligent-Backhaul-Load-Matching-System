@@ -24,7 +24,7 @@ function ScoreRing({ score }) {
         alignItems: 'center',
         justifyContent: 'center',
         fontWeight: 800,
-        fontSize: 16,
+        fontSize: 17,
         flexShrink: 0,
       }}
     >
@@ -36,7 +36,7 @@ function ScoreRing({ score }) {
 function FactorBar({ label, value, weight }) {
   return (
     <div style={{ marginBottom: 6 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: 'var(--muted)', marginBottom: 2 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, color: 'var(--muted)', marginBottom: 2 }}>
         <span>
           {label} <span style={{ opacity: 0.7 }}>({Math.round(weight * 100)}%)</span>
         </span>
@@ -79,7 +79,7 @@ function MlBadge({ probability }) {
         fontWeight: 700,
         padding: '2px 8px',
         borderRadius: 999,
-        fontSize: 10.5,
+        fontSize: 11.5,
         whiteSpace: 'nowrap',
       }}
       title={t('ml.syntheticNote')}
@@ -108,7 +108,7 @@ function MlProfitabilityBadge({ marginPct }) {
         fontWeight: 700,
         padding: '2px 8px',
         borderRadius: 999,
-        fontSize: 10.5,
+        fontSize: 11.5,
         whiteSpace: 'nowrap',
       }}
       title={t('ml.profitabilityNote')}
@@ -125,7 +125,7 @@ export default function MatchResults({ matches, mode, fixedId, onRequest }) {
   const [error, setError] = useState(null);
 
   if (!matches || matches.length === 0) {
-    return <p style={{ fontSize: 13, color: 'var(--muted)' }}>No eligible matches right now. Try adjusting dates or capacity.</p>;
+    return <p style={{ fontSize: 14, color: 'var(--muted)' }}>No eligible matches right now. Try adjusting dates or capacity.</p>;
   }
 
   async function handleRequest(m, key) {
@@ -144,7 +144,7 @@ export default function MatchResults({ matches, mode, fixedId, onRequest }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {error && <p style={{ color: '#DC2626', fontSize: 13 }}>{error}</p>}
+      {error && <p style={{ color: '#DC2626', fontSize: 14 }}>{error}</p>}
       {matches.map((m, idx) => {
         const key = mode === 'trip' ? m.load._id : `${m.trip._id}-${m.vehicle._id}`;
         const isOpen = expanded === key;
@@ -155,24 +155,24 @@ export default function MatchResults({ matches, mode, fixedId, onRequest }) {
               <div style={{ flex: 1 }}>
                 {mode === 'trip' ? (
                   <>
-                    <div style={{ fontWeight: 800, fontSize: 14 }}>
+                    <div style={{ fontWeight: 800, fontSize: 15 }}>
                       {m.load.pickupLocation} → {m.load.deliveryLocation}
                     </div>
-                    <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>
+                    <div style={{ fontSize: 13.5, color: 'var(--muted)' }}>
                       {m.load.cargoType} · {m.load.cargoWeightTonnes}t · expects ₹{m.load.expectedPrice}
                     </div>
                   </>
                 ) : (
                   <>
-                    <div style={{ fontWeight: 800, fontSize: 14 }}>
+                    <div style={{ fontWeight: 800, fontSize: 15 }}>
                       {m.trip.source} → {m.trip.destination}
                     </div>
-                    <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>
+                    <div style={{ fontSize: 13.5, color: 'var(--muted)' }}>
                       {m.vehicle.vehicleNumber} · {m.vehicle.vehicleType.replace('_', ' ')} · {m.vehicle.maxCapacityTonnes}t capacity
                     </div>
                   </>
                 )}
-                <div style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 700, marginTop: 2 }}>
+                <div style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 700, marginTop: 2 }}>
                   Detour: {m.detourKm} km
                   {m.profitability && !m.profitability.error ? ` · Est. profit ₹${m.profitability.estimatedProfit}` : ''}
                 </div>
@@ -184,12 +184,12 @@ export default function MatchResults({ matches, mode, fixedId, onRequest }) {
                 )}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <button className="btn btn-outline" style={{ fontSize: 12 }} onClick={() => setExpanded(isOpen ? null : key)}>
+                <button className="btn btn-outline" style={{ fontSize: 13 }} onClick={() => setExpanded(isOpen ? null : key)}>
                   {isOpen ? 'Hide details' : 'Why this score?'}
                 </button>
                 <button
                   className="btn btn-primary"
-                  style={{ fontSize: 12 }}
+                  style={{ fontSize: 13 }}
                   disabled={busyKey === key}
                   onClick={() => handleRequest(m, key)}
                 >
@@ -204,12 +204,12 @@ export default function MatchResults({ matches, mode, fixedId, onRequest }) {
                   <FactorBar key={k} label={FACTOR_LABELS[k] || k} value={m.factors[k]} weight={m.weights[k]} />
                 ))}
                 {m.profitability && !m.profitability.error && (
-                  <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 8 }}>
+                  <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 8 }}>
                     Revenue ₹{m.profitability.revenue} · Est. cost ₹{m.profitability.estimatedOperatingCost} ({m.profitability.assumptions})
                   </div>
                 )}
                 {m.mlCompatibility != null && (
-                  <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 8, borderTop: '1px dashed var(--border)', paddingTop: 8 }}>
+                  <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 8, borderTop: '1px dashed var(--border)', paddingTop: 8 }}>
                     <strong style={{ color: 'var(--text)' }}>
                       {t('ml.compatibilityLabel')}: {Math.round(m.mlCompatibility * 100)}%
                     </strong>{' '}
@@ -217,7 +217,7 @@ export default function MatchResults({ matches, mode, fixedId, onRequest }) {
                   </div>
                 )}
                 {m.mlProfitability != null && (
-                  <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 8, borderTop: '1px dashed var(--border)', paddingTop: 8 }}>
+                  <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 8, borderTop: '1px dashed var(--border)', paddingTop: 8 }}>
                     <strong style={{ color: 'var(--text)' }}>
                       {t('ml.profitabilityLabel')}: {m.mlProfitability.predictedMarginPct}% (₹{m.mlProfitability.predictedProfit})
                     </strong>{' '}

@@ -1,4 +1,9 @@
-const API_BASE = 'http://localhost:5000/api';
+// Reads the deployed backend's URL from Vite's VITE_API_BASE env var
+// (see .env.example) so a production build can point at a real backend
+// host instead of this local-dev default. Exported so adminApi.js and
+// App.jsx's /status health check reuse the exact same base instead of
+// each hardcoding their own copy.
+export const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000/api';
 const TOKEN_KEY = 'iblms_token';
 
 export function getToken() {

@@ -1,0 +1,17 @@
+{
+  "numeric_features": [
+    "distance_km",
+    "dow_sin",
+    "dow_cos",
+    "doy_sin",
+    "doy_cos",
+    "recent_load_count_14d",
+    "recent_load_count_30d"
+  ],
+  "categorical_features": [
+    "origin",
+    "destination",
+    "is_weekend"
+  ],
+  "notes": "is_weekend is the string 'True'/'False', matching the anchor date's own weekday."
+}

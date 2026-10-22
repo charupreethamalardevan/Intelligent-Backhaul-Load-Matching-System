@@ -275,6 +275,11 @@ async function main() {
   const routeB = await ensureRoute(truckB, fleetOwner._id, { source: 'Chennai', destination: 'Bengaluru', availableFrom: daysAgo(1), status: 'available' });
   const routeC = await ensureRoute(truckC, ownerDriver._id, { source: 'Kolkata', destination: 'Pune', availableFrom: daysFromNow(2), status: 'available' });
   const routeA2 = await ensureRoute(truckA, fleetOwner._id, { source: 'Hyderabad', destination: 'Vijayawada', availableFrom: daysAgo(9), status: 'available' });
+  // 2nd route for the Individual Owner's truck -- routeC above is a
+  // pending request, which never shows the "Track Live Location" button
+  // (only Pickup/In Transit do). This one gives that account an in-transit
+  // booking too, the same way routeB does for the Fleet Owner.
+  const routeD = await ensureRoute(truckC, ownerDriver._id, { source: 'Chennai', destination: 'Madurai', availableFrom: daysAgo(1), status: 'available' });
 
   console.log('[seed:live-demo] Ensuring loads...');
   const load1 = await ensureLoad(business._id, {
@@ -302,12 +307,18 @@ async function main() {
     requiredVehicleType: 'any', pickupDateTime: daysAgo(9), deliveryDeadline: daysAgo(6), expectedPrice: 11000,
     createdAtOverride: daysAgo(9),
   });
+  const load7 = await ensureLoad(business._id, {
+    pickupLocation: 'Chennai', deliveryLocation: 'Madurai', cargoType: 'fragile', cargoWeightTonnes: 1,
+    requiredVehicleType: 'any', pickupDateTime: daysAgo(1), deliveryDeadline: daysFromNow(2), expectedPrice: 6000,
+    createdAtOverride: daysAgo(1),
+  });
 
   console.log('[seed:live-demo] Ensuring bookings across the lifecycle...');
   const m1 = await ensureMatch(routeA, truckA, load1, { requestedBy: fleetOwner._id, requestedByRole: 'fleet_owner', finalStatus: 'completed', createdAt: daysAgo(4), updatedAt: daysAgo(2) });
   const m2 = await ensureMatch(routeB, truckB, load3, { requestedBy: fleetOwner._id, requestedByRole: 'fleet_owner', finalStatus: 'in_transit', createdAt: daysAgo(1), updatedAt: new Date() });
   const m3 = await ensureMatch(routeC, truckC, load2, { requestedBy: ownerDriver._id, requestedByRole: 'owner_driver', finalStatus: 'requested', createdAt: new Date(), updatedAt: new Date() });
   const m4 = await ensureMatch(routeA2, truckA, load6, { requestedBy: driver._id, requestedByRole: 'driver', finalStatus: 'completed', createdAt: daysAgo(9), updatedAt: daysAgo(7) });
+  const m5 = await ensureMatch(routeD, truckC, load7, { requestedBy: ownerDriver._id, requestedByRole: 'owner_driver', finalStatus: 'in_transit', createdAt: daysAgo(1), updatedAt: new Date() });
 
   if (m1) {
     await Route.findByIdAndUpdate(routeA._id, { status: 'completed' });
@@ -320,6 +331,10 @@ async function main() {
   if (m4) {
     await Route.findByIdAndUpdate(routeA2._id, { status: 'completed' });
     await Load.findByIdAndUpdate(load6._id, { status: 'completed' });
+  }
+  if (m5) {
+    await Route.findByIdAndUpdate(routeD._id, { status: 'matched' });
+    await Load.findByIdAndUpdate(load7._id, { status: 'matched' });
   }
 
   console.log('[seed:live-demo] Seeding ratings for the 2 completed bookings...');
@@ -338,7 +353,7 @@ async function main() {
 
   console.log('\n[seed:live-demo] Done. What each demo login will now see:');
   console.log('  demo.fleetowner@iblms.test   -- 2 trucks; Kolkata->Pune COMPLETED (rated, in History/Payments); Chennai->Bengaluru IN TRANSIT (Current Trip, Simulate).');
-  console.log('  demo.ownerdriver@iblms.test  -- 1 truck; Kolkata->Pune route REQUESTED (pending, in Requests); try Demand Forecast for Kolkata->Pune.');
+  console.log('  demo.ownerdriver@iblms.test  -- 1 truck; Kolkata->Pune REQUESTED (pending); Chennai->Madurai IN TRANSIT (Current Trip, Simulate, Track Live Location); try Demand Forecast for Kolkata->Pune.');
   console.log('  demo.driver@iblms.test       -- assigned to the fleet owner\'s truck A; 1 completed delivery of their own (rated).');
   console.log('  demo.business@iblms.test     -- 3 loads posted (1 completed, 1 matched/in-transit, 1 open) across 2 routes.');
   console.log('  demo.individual@iblms.test   -- 2 loads posted (1 completed/rated, 1 open).');

@@ -12,7 +12,7 @@ import './TripMap.css';
 // this app, just as a centered dialog instead of a right-edge slide-over
 // (a map needs real width and height to be worth zooming into, which a
 // 420px side panel doesn't give it).
-export default function TripMapModal({ request, canShareLocation, onClose }) {
+export default function TripMapModal({ request, canShareLocation, onClose, autoShare = false, title }) {
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -29,10 +29,10 @@ export default function TripMapModal({ request, canShareLocation, onClose }) {
   return (
     <>
       <div className="trip-nav-backdrop" onClick={onClose} />
-      <div className="trip-nav-modal" role="dialog" aria-modal="true" aria-label={t('map.startNavigation', 'Start Navigation')}>
+      <div className="trip-nav-modal" role="dialog" aria-modal="true" aria-label={title || t('map.startNavigation', 'Start Navigation')}>
         <div className="trip-nav-head">
           <div>
-            <h2>{t('map.startNavigation', 'Start Navigation')}</h2>
+            <h2>{title || t('map.startNavigation', 'Start Navigation')}</h2>
             {trip && (
               <p className="trip-nav-sub">
                 {trip.source} → {trip.destination}
@@ -44,7 +44,7 @@ export default function TripMapModal({ request, canShareLocation, onClose }) {
           </button>
         </div>
         <div className="trip-nav-body">
-          <TripMap request={request} canShareLocation={canShareLocation} height="100%" scrollWheelZoom />
+          <TripMap request={request} canShareLocation={canShareLocation} height="100%" scrollWheelZoom autoShare={autoShare} />
         </div>
       </div>
     </>

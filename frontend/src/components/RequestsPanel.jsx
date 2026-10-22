@@ -4,7 +4,8 @@ import { listRequests, updateRequestStatus, STATUS_LABELS, NEXT_ACTIONS } from '
 import { timeAgo } from '../lib/time.js';
 import TripMapModal from './TripMapModal.jsx';
 import SimulateModal from './SimulateModal.jsx';
-import { IconZap, IconCheckCircle, IconX } from './icons.jsx';
+import { ACTIVE_STATUSES } from './TripMap.jsx';
+import { IconZap, IconCheckCircle, IconX, IconMapPin } from './icons.jsx';
 import './dataViews.css';
 
 const ACTION_LABELS = {
@@ -105,6 +106,7 @@ export default function RequestsPanel({ user, mode = 'current', focusId = null, 
   // "Simulate" dialog (or null when closed) -- neither sits inline on the
   // row itself anymore, both only ever show once explicitly asked for.
   const [navigatingId, setNavigatingId] = useState(null);
+  const [trackingId, setTrackingId] = useState(null);
   const [simulatingId, setSimulatingId] = useState(null);
   const [highlightId, setHighlightId] = useState(null);
   const rowRefs = useRef({});
@@ -196,6 +198,11 @@ export default function RequestsPanel({ user, mode = 'current', focusId = null, 
             }
           }
           const canSimulate = mode === 'current' && trip && !TERMINAL_STATUSES.includes(r.status);
+          // Separate from "Start Navigation" (which just views the map) --
+          // only offered once there's actually something real to track
+          // (vehicle side, booking genuinely Pickup/In Transit), same gate
+          // the backend's PATCH /:id/location enforces.
+          const canTrackLive = mode === 'current' && trip && isVehicleSide(r, user) && ACTIVE_STATUSES.includes(r.status);
           const tone = requestTone(r.status);
           const rowClass = mode === 'history' ? `dv-req-row dv-req-row-history tone-${tone}` : 'dv-req-row';
           return (
@@ -245,6 +252,17 @@ export default function RequestsPanel({ user, mode = 'current', focusId = null, 
                       {t('map.startNavigation', 'Start Navigation')}
                     </button>
                   )}
+                  {canTrackLive && (
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      style={{ fontSize: 13 }}
+                      title={t('map.trackLiveHint', "Uses your device's real GPS and moves the marker as you actually move -- not a simulation.")}
+                      onClick={() => setTrackingId(r._id)}
+                    >
+                      <IconMapPin size={13} /> {t('map.trackLive', 'Track Live Location')}
+                    </button>
+                  )}
                   {canSimulate && (
                     <button
                       type="button"
@@ -266,6 +284,13 @@ export default function RequestsPanel({ user, mode = 'current', focusId = null, 
         request={requests.find((r) => r._id === navigatingId) || null}
         canShareLocation={isVehicleSide(requests.find((r) => r._id === navigatingId) || {}, user)}
         onClose={() => setNavigatingId(null)}
+      />
+      <TripMapModal
+        request={requests.find((r) => r._id === trackingId) || null}
+        canShareLocation
+        autoShare
+        title={t('map.trackLive', 'Track Live Location')}
+        onClose={() => setTrackingId(null)}
       />
       <SimulateModal request={requests.find((r) => r._id === simulatingId) || null} onClose={() => setSimulatingId(null)} onAdvance={load} />
     </div>

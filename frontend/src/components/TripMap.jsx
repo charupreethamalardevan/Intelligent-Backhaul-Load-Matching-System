@@ -11,7 +11,7 @@ import './TripMap.css';
 // Only these two statuses are "actively on the road" -- matches the same
 // gate the backend enforces in routes/requests.js's PATCH /:id/location,
 // and is also when a real liveLocation is worth polling for.
-const ACTIVE_STATUSES = ['pickup', 'in_transit'];
+export const ACTIVE_STATUSES = ['pickup', 'in_transit'];
 // Wider set of statuses worth showing *some* movement for, even before a
 // real GPS point exists -- e.g. so a freshly-confirmed booking's map
 // isn't just two static pins with nothing happening.
@@ -53,7 +53,7 @@ function pinIcon(color, label) {
 // with the mouse wheel) and TripMapModal's full "Start Navigation" popup
 // (fills the dialog, scroll-wheel zoom on, since there the map -- not the
 // page -- should own the wheel).
-export default function TripMap({ request, canShareLocation, height = 260, scrollWheelZoom = false, simOnce = false, simDurationMs = SIM_DURATION_MS }) {
+export default function TripMap({ request, canShareLocation, height = 260, scrollWheelZoom = false, simOnce = false, simDurationMs = SIM_DURATION_MS, autoShare = false }) {
   const { t } = useTranslation();
   const [coords, setCoords] = useState(null);
   const [route, setRoute] = useState(null);
@@ -70,6 +70,12 @@ export default function TripMap({ request, canShareLocation, height = 260, scrol
   // seconds while SimulateModal is running) don't reset it back to the
   // source every time. Cleared whenever this becomes a different booking.
   const simOnceStartRef = useRef(null);
+  // Guards the auto-share effect below so it only ever calls
+  // startSharing() once per mount, even though its dependencies
+  // (status/sharing) change as the booking moves through pickup ->
+  // in_transit -- without this it would re-fire watchPosition() on every
+  // status tick, stacking up geolocation watches.
+  const autoShareStartedRef = useRef(false);
 
   const trip = request.tripId;
   const status = request.status;
@@ -199,6 +205,21 @@ export default function TripMap({ request, canShareLocation, height = 260, scrol
       .catch(() => {});
     return undefined;
   }, [simPos, canShareLocation, hasLive, status, request._id]);
+
+  // "Track Live Location" (RequestsPanel's dedicated button, separate
+  // from "Start Navigation") opens this same map with autoShare -- start
+  // the browser's real GPS watch immediately instead of making the user
+  // find and click "Share my location" themselves, so it genuinely works
+  // like "find my current location and start as I move" the moment this
+  // opens. Still only when eligible (vehicle side, pickup/in_transit) --
+  // same rule the manual button and the backend both enforce.
+  useEffect(() => {
+    if (!autoShare || autoShareStartedRef.current || sharing) return;
+    if (!canShareLocation || !ACTIVE_STATUSES.includes(status)) return;
+    autoShareStartedRef.current = true;
+    startSharing();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoShare, canShareLocation, status, sharing]);
 
   // Clean up any live geolocation watch on unmount (e.g. the card gets
   // collapsed again) so a background tab doesn't keep reporting position.

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -19,6 +19,26 @@ const SIM_ELIGIBLE_STATUSES = ['confirmed', 'pickup', 'in_transit', 'delivered',
 const POLL_MS = 8000;
 const SIM_DURATION_MS = 16000;
 const SIM_STEP_MS = 200;
+
+// Re-centers the map on a real GPS fix as it comes in, zoomed in close
+// (street level) instead of staying at the whole-route zoom the map opens
+// at -- at city-to-route zoom, walking a few dozen metres for a "show it
+// moving" demo wouldn't even move the dot by a visible pixel. First fix
+// snaps the view in; every fix after that pans without resetting zoom, so
+// it doesn't fight a reviewer who's manually zoomed in/out to look closer.
+function LiveFollow({ lat, lng, zoom = 17 }) {
+  const map = useMap();
+  const centeredRef = useRef(false);
+  useEffect(() => {
+    if (!centeredRef.current) {
+      map.setView([lat, lng], zoom, { animate: true });
+      centeredRef.current = true;
+    } else {
+      map.panTo([lat, lng], { animate: true });
+    }
+  }, [lat, lng, map, zoom]);
+  return null;
+}
 
 function pinIcon(color, label) {
   return L.divIcon({
@@ -292,6 +312,7 @@ export default function TripMap({ request, canShareLocation, height = 260, scrol
             icon={pinIcon(hasLive ? '#DC2626' : '#D97706', hasLive ? t('map.live') : t('map.simulatedPreview'))}
           />
         )}
+        {hasLive && markerPos && <LiveFollow lat={markerPos.lat} lng={markerPos.lng} />}
       </MapContainer>
       <div className="trip-map-footer">
         <span className={`trip-map-badge${hasLive ? ' trip-map-badge-live' : ''}`}>{hasLive ? t('map.live') : t('map.simulatedPreview')}</span>

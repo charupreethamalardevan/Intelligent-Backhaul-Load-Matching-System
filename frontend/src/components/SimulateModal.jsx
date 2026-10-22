@@ -105,7 +105,7 @@ export default function SimulateModal({ request, onClose, onAdvance }) {
               so as soon as the stepper below advances past "Accepted" this
               starts moving on its own, no extra wiring needed here. */}
           <div className="sim-map">
-            <TripMap request={request} canShareLocation={false} height={280} scrollWheelZoom={false} />
+            <TripMap request={request} canShareLocation={false} height={280} scrollWheelZoom={false} simOnce simDurationMs={10000} />
           </div>
           <div className="sim-steps">
             {SIM_PATH.map((s, i) => (

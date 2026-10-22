@@ -53,7 +53,7 @@ function pinIcon(color, label) {
 // with the mouse wheel) and TripMapModal's full "Start Navigation" popup
 // (fills the dialog, scroll-wheel zoom on, since there the map -- not the
 // page -- should own the wheel).
-export default function TripMap({ request, canShareLocation, height = 260, scrollWheelZoom = false }) {
+export default function TripMap({ request, canShareLocation, height = 260, scrollWheelZoom = false, simOnce = false, simDurationMs = SIM_DURATION_MS }) {
   const { t } = useTranslation();
   const [coords, setCoords] = useState(null);
   const [route, setRoute] = useState(null);
@@ -65,10 +65,19 @@ export default function TripMap({ request, canShareLocation, height = 260, scrol
   const watchIdRef = useRef(null);
   const lastSentRef = useRef(0);
   const simLogRef = useRef(0);
+  // Only used when simOnce -- Date.now() the ONE-SHOT animation below
+  // started at, so re-renders (the status ticking forward every couple
+  // seconds while SimulateModal is running) don't reset it back to the
+  // source every time. Cleared whenever this becomes a different booking.
+  const simOnceStartRef = useRef(null);
 
   const trip = request.tripId;
   const status = request.status;
   const hasLive = !!(liveLocation && liveLocation.lat != null && liveLocation.lng != null);
+
+  useEffect(() => {
+    simOnceStartRef.current = null;
+  }, [request._id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -133,18 +142,38 @@ export default function TripMap({ request, canShareLocation, height = 260, scrol
 
     const reduced = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduced) {
-      setSimPos(positionAtFraction(route, 0.5));
+      setSimPos(positionAtFraction(route, simOnce ? 1 : 0.5));
       return undefined;
+    }
+
+    // simOnce (SimulateModal's embed): travel source -> destination ONE
+    // time over simDurationMs and then hold at the destination, instead
+    // of looping forever. The status keeps advancing every couple of
+    // seconds while Simulate runs, which would otherwise re-trigger this
+    // effect (status is a dependency, so we know when to START) and reset
+    // the clock back to 0 on every single step -- simOnceStartRef is what
+    // keeps the clock running across those re-triggers instead of
+    // restarting it, which is why the marker used to never make it past
+    // the source pin.
+    if (simOnce) {
+      if (simOnceStartRef.current == null) simOnceStartRef.current = Date.now();
+      const id = setInterval(() => {
+        const elapsed = Date.now() - simOnceStartRef.current;
+        const frac = Math.min(1, elapsed / simDurationMs);
+        setSimPos(positionAtFraction(route, frac));
+        if (frac >= 1) clearInterval(id);
+      }, SIM_STEP_MS);
+      return () => clearInterval(id);
     }
 
     const start = Date.now();
     const id = setInterval(() => {
-      const elapsed = (Date.now() - start) % SIM_DURATION_MS;
-      const frac = elapsed / SIM_DURATION_MS;
+      const elapsed = (Date.now() - start) % simDurationMs;
+      const frac = elapsed / simDurationMs;
       setSimPos(positionAtFraction(route, frac));
     }, SIM_STEP_MS);
     return () => clearInterval(id);
-  }, [route, hasLive, status]);
+  }, [route, hasLive, status, simOnce, simDurationMs]);
 
   // Report the simulated preview's position too (tagged source:
   // 'simulated'), so the backend sees every position this card produces,

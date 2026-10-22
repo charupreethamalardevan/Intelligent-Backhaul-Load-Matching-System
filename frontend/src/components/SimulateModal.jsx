@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { updateRequestStatus, STATUS_LABELS } from '../lib/requestApi.js';
-import { IconCheckCircle, IconZap } from './icons.jsx';
+import { IconCheckCircle, IconZap, IconMapPin } from './icons.jsx';
 import TripMap from './TripMap.jsx';
 import './dataViews.css';
 
@@ -10,6 +10,8 @@ import './dataViews.css';
 // comment for why this is a demo convenience and not a shortcut around the
 // backend.
 const SIM_PATH = ['pending_fleet_approval', 'requested', 'accepted', 'confirmed', 'pickup', 'in_transit', 'delivered', 'completed'];
+// Same gate TripMap.jsx's ACTIVE_STATUSES / the backend's PATCH /:id/location use for real GPS sharing.
+const LIVE_TRACKABLE_STATUSES = ['pickup', 'in_transit'];
 
 // Deliberately slow (per the user's "I want it to open big and slow") --
 // this is meant to be *watched*, e.g. while recording a demo video, not
@@ -28,6 +30,7 @@ export default function SimulateModal({ request, onClose, onAdvance }) {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState(null);
   const [done, setDone] = useState(false);
+  const [liveTracking, setLiveTracking] = useState(false);
   const cancelledRef = useRef(false);
 
   useEffect(() => {
@@ -35,6 +38,7 @@ export default function SimulateModal({ request, onClose, onAdvance }) {
       setCurrent(request.status);
       setError(null);
       setDone(request.status === 'completed');
+      setLiveTracking(false);
       cancelledRef.current = false;
     }
   }, [request?._id]);
@@ -54,6 +58,9 @@ export default function SimulateModal({ request, onClose, onAdvance }) {
   async function run() {
     setRunning(true);
     setError(null);
+    // Clear any earlier pause (see trackLive() below) -- explicitly
+    // starting/resuming the stepper always means "keep going from here."
+    cancelledRef.current = false;
     let c = current;
     try {
       while (c !== 'completed' && !cancelledRef.current) {
@@ -77,6 +84,17 @@ export default function SimulateModal({ request, onClose, onAdvance }) {
   function handleClose() {
     cancelledRef.current = true;
     onClose();
+  }
+
+  // Pauses the auto-stepper (if it's mid-run) right where it is instead
+  // of letting it race on to Delivered/Completed in the next few seconds
+  // -- a real "walk around with your phone" demo takes longer than the
+  // ~2.2s/step simulation does, and the backend stops accepting location
+  // updates once the booking is past In Transit. "Start simulation" still
+  // works afterward to resume/finish the lifecycle once you're done.
+  function trackLive() {
+    cancelledRef.current = true;
+    setLiveTracking(true);
   }
 
   const idx = SIM_PATH.indexOf(current);
@@ -105,7 +123,7 @@ export default function SimulateModal({ request, onClose, onAdvance }) {
               so as soon as the stepper below advances past "Accepted" this
               starts moving on its own, no extra wiring needed here. */}
           <div className="sim-map">
-            <TripMap request={request} canShareLocation={false} height={280} scrollWheelZoom={false} simOnce simDurationMs={10000} />
+            <TripMap request={request} canShareLocation height={280} scrollWheelZoom={false} simOnce={!liveTracking} simDurationMs={10000} autoShare={liveTracking} />
           </div>
           <div className="sim-steps">
             {SIM_PATH.map((s, i) => (
@@ -118,12 +136,27 @@ export default function SimulateModal({ request, onClose, onAdvance }) {
           {error && <p className="sim-error">{t('sim.stopped', 'Simulation stopped: {{message}}', { message: error })}</p>}
           {done && !error && <p className="sim-success">{t('sim.done', 'Booking completed — head to Payments to settle it.')}</p>}
           <div className="sim-actions">
+            {LIVE_TRACKABLE_STATUSES.includes(current) && !liveTracking && (
+              <button
+                type="button"
+                className="btn btn-outline"
+                title={t('map.trackLiveHint', "Uses your device's real GPS and moves the marker as you actually move -- not a simulation.")}
+                onClick={trackLive}
+              >
+                <IconMapPin size={14} /> {t('map.trackLive', 'Track Live Location')}
+              </button>
+            )}
             {!done && (
               <button type="button" className="btn btn-primary" disabled={running} onClick={run}>
-                <IconZap size={14} /> {running ? t('sim.running', 'Simulating...') : t('sim.start', 'Start simulation')}
+                <IconZap size={14} /> {running ? t('sim.running', 'Simulating...') : liveTracking ? t('sim.resume', 'Resume / finish') : t('sim.start', 'Start simulation')}
               </button>
             )}
           </div>
+          {liveTracking && !done && (
+            <p style={{ fontSize: 12.5, color: 'var(--ink-muted)', margin: 0 }}>
+              {t('sim.liveTrackingHint', 'Paused here for live tracking -- click Resume / finish whenever you want to move this booking on.')}
+            </p>
+          )}
         </div>
       </div>
     </>

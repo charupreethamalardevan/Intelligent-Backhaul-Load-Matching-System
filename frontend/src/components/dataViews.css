@@ -690,8 +690,8 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(640px, 94vw);
-  max-height: min(80vh, 640px);
+  width: min(760px, 94vw);
+  max-height: min(88vh, 820px);
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
@@ -743,6 +743,12 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.sim-map {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--line);
 }
 
 .sim-steps {

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { updateRequestStatus, STATUS_LABELS } from '../lib/requestApi.js';
 import { IconCheckCircle, IconZap } from './icons.jsx';
+import TripMap from './TripMap.jsx';
 import './dataViews.css';
 
 // Walks the same lifecycle backend/routes/requests.js's ALLOWED_TRANSITIONS
@@ -97,6 +98,15 @@ export default function SimulateModal({ request, onClose, onAdvance }) {
           </button>
         </div>
         <div className="sim-body">
+          {/* The map that makes "Simulate" actually show navigation, not
+              just a status stepper -- TripMap already animates a marker
+              along the real source->destination road path for any status
+              from 'confirmed' onward (see TripMap.jsx's SIM_ELIGIBLE_STATUSES),
+              so as soon as the stepper below advances past "Accepted" this
+              starts moving on its own, no extra wiring needed here. */}
+          <div className="sim-map">
+            <TripMap request={request} canShareLocation={false} height={280} scrollWheelZoom={false} />
+          </div>
           <div className="sim-steps">
             {SIM_PATH.map((s, i) => (
               <div key={s} className={`sim-step ${i < idx ? 'done' : i === idx ? 'active' : ''}`}>

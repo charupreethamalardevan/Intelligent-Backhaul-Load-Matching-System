@@ -36,6 +36,7 @@
       "findLoads": "Find Loads",
       "nearbyLoads": "Nearby Loads",
       "myRequests": "My Requests",
+      "trackLoad": "Track Load",
       "myLoads": "My Loads",
       "findVehicles": "Find Vehicles",
       "tripPlanner": "Trip Planner",
@@ -73,6 +74,10 @@
       "requests": {
         "title": "My Requests",
         "subtitle": "Track every booking through its lifecycle."
+      },
+      "trackLoad": {
+        "title": "Track Load",
+        "subtitle": "Live location for loads on the move."
       },
       "currentTrip": {
         "title": "Current Trip",

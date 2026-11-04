@@ -4,11 +4,12 @@ import { listRequests, updateRequestStatus, STATUS_LABELS, NEXT_ACTIONS } from '
 import { timeAgo, bucketByDay } from '../lib/time.js';
 import TripMapModal from './TripMapModal.jsx';
 import SimulateModal from './SimulateModal.jsx';
-import { ACTIVE_STATUSES } from './TripMap.jsx';
+import TripMap, { ACTIVE_STATUSES } from './TripMap.jsx';
 import { IconZap, IconCheckCircle, IconX, IconMapPin } from './icons.jsx';
 import { MiniLineChart, MiniBarChart } from './MiniCharts.jsx';
 import './dataViews.css';
 import { locationLabel } from '../lib/locationLabel.js';
+import { googleMapsDirectionsUrl } from '../lib/mapsLink.js';
 
 // History-only status-breakdown colors -- History only ever contains the
 // 3 terminal statuses, so this is a smaller, dedicated palette rather
@@ -32,6 +33,22 @@ const ACTION_LABELS = {
 };
 
 const TRACKABLE_STATUSES = ['confirmed', 'pickup', 'in_transit', 'delivered', 'completed'];
+
+// The statuses "Track Load" mode (see below) shows -- a booking really
+// has a vehicle moving against it once it's past Confirmed, up through
+// Delivered. Completed/rejected/cancelled belong in History instead, and
+// anything before Confirmed (pending_fleet_approval/requested/accepted)
+// has no vehicle assigned to track yet.
+const TRACK_STATUSES = ['confirmed', 'pickup', 'in_transit', 'delivered'];
+
+// A booking is still a live decision for the Poster -- Accept/Reject (or,
+// for the requester's own pending row, Cancel) -- only at these two
+// stages. Everything past this point is the vehicle side's job to move
+// forward and track; restrictToDecision (below) uses this to hide every
+// other action/button on the Poster's own "My Requests" view (Addendum:
+// user asked for My Requests to be decision-only, with navigation/
+// tracking moved to its own "Track Load" dashboard instead).
+const DECISION_STATUSES = ['pending_fleet_approval', 'requested'];
 
 // A booking is "history" once it's reached one of these -- there is no
 // way back out of any of them (see backend/routes/requests.js's
@@ -91,16 +108,30 @@ function requestTone(status) {
 // Owner, but only the Fleet Owner may approve/reject it -- the driver
 // only gets a Cancel button for their own request.
 //
-// `mode` splits this single list into two separate, real-app-style
+// `mode` splits this single list into three separate, real-app-style
 // dashboards instead of one flat feed mixing everything together:
 //   'current' (default) -- every booking still moving (not yet completed,
 //      rejected or cancelled). Gets the full action buttons, "Start
-//      Navigation", and the "Simulate" demo control.
+//      Navigation", and the "Simulate" demo control -- unless
+//      `restrictToDecision` is set (see below).
+//   'track' -- every booking with a vehicle actually assigned and moving
+//      (Confirmed through Delivered): no action buttons at all, just the
+//      live map inline for each row and an "Open in Google Maps" link --
+//      the Poster's dedicated "Track Load" dashboard.
 //   'history' -- every booking that's done, one way or another. Fully
 //      read-only -- no action buttons, no Start Navigation, no Simulate --
 //      just a record of what happened and when.
 // Recording payment for a completed booking lives in its own dashboard
 // now (PaymentsPanel.jsx), not inline here.
+//
+// `restrictToDecision` (mode 'current' only) -- when true, a row only
+// ever shows Accept/Reject/Approve/Cancel at the two pending/requested
+// stages, and nothing at all once it moves past that (no Mark
+// picked-up/in-transit/delivered, no Start Navigation, no Simulate).
+// Used by PosterDashboard's "My Requests" so the Poster only ever makes
+// the accept/reject decision there; FleetDashboard does not set this --
+// the vehicle side still needs the full set of lifecycle/tracking
+// controls on its own Current Trip panel.
 //
 // `focusId` (optional) is a request id to scroll to and briefly highlight
 // on mount -- used by FleetDashboard when a Trip Planner row with a live
@@ -108,7 +139,7 @@ function requestTone(status) {
 // on the right row instead of just switching tabs. `onFocusHandled` lets
 // the parent clear its own copy of that id once this panel has it, so a
 // later unrelated visit to Current Trip doesn't re-highlight a stale row.
-export default function RequestsPanel({ user, mode = 'current', focusId = null, onFocusHandled }) {
+export default function RequestsPanel({ user, mode = 'current', focusId = null, onFocusHandled, restrictToDecision = false }) {
   const { t } = useTranslation();
   const [requests, setRequests] = useState([]);
   const [error, setError] = useState(null);
@@ -146,7 +177,11 @@ export default function RequestsPanel({ user, mode = 'current', focusId = null, 
     }
   }, [highlightId, requests]);
 
-  const visibleRequests = requests.filter((r) => (mode === 'history' ? TERMINAL_STATUSES.includes(r.status) : !TERMINAL_STATUSES.includes(r.status)));
+  const visibleRequests = requests.filter((r) => {
+    if (mode === 'history') return TERMINAL_STATUSES.includes(r.status);
+    if (mode === 'track') return TRACK_STATUSES.includes(r.status);
+    return !TERMINAL_STATUSES.includes(r.status);
+  });
 
   // History is presented as graphs first (per the user's own request: "for
   // history, use graphs for a presentation, not use tables") -- a 14-day
@@ -185,14 +220,16 @@ export default function RequestsPanel({ user, mode = 'current', focusId = null, 
     }
   }
 
+  const TITLES = {
+    history: `${t('dashboard.section.history.title', 'History')} · ${visibleRequests.length}`,
+    track: `${t('dashboard.section.trackLoad.title', 'Track Load')} · ${visibleRequests.length}`,
+    current: `${t('dashboard.section.currentTrip.title', 'Current Trip')} · ${visibleRequests.length}`,
+  };
+
   return (
     <div className="dv-panel">
       <div className="dv-panel-head">
-        <h2>
-          {mode === 'history'
-            ? `${t('dashboard.section.history.title', 'History')} · ${visibleRequests.length}`
-            : `${t('dashboard.section.currentTrip.title', 'Current Trip')} · ${visibleRequests.length}`}
-        </h2>
+        <h2>{TITLES[mode] || TITLES.current}</h2>
       </div>
       {error && <p style={{ color: 'var(--critical)', fontSize: 14, padding: '0 18px 10px' }}>{error}</p>}
       {mode === 'history' && visibleRequests.length > 0 && (
@@ -215,7 +252,9 @@ export default function RequestsPanel({ user, mode = 'current', focusId = null, 
         <div className="dv-empty">
           {mode === 'history'
             ? t('dashboard.history.noneYet', 'No finished bookings yet -- completed, rejected and cancelled trips will show up here.')
-            : t('dashboard.requests.noneYet', 'No booking requests yet.')}
+            : mode === 'track'
+              ? t('dashboard.trackLoad.noneYet', 'Nothing on the move yet -- once a booking is confirmed and a vehicle is assigned, it will show up here with its live map.')
+              : t('dashboard.requests.noneYet', 'No booking requests yet.')}
         </div>
       ) : (
         visibleRequests.map((r) => {
@@ -248,14 +287,16 @@ export default function RequestsPanel({ user, mode = 'current', focusId = null, 
               actions = ['accepted', 'rejected'];
             }
           }
-          const canSimulate = mode === 'current' && trip && !TERMINAL_STATUSES.includes(r.status);
+          const isDecisionStage = DECISION_STATUSES.includes(r.status);
+          const canSimulate = mode === 'current' && !restrictToDecision && trip && !TERMINAL_STATUSES.includes(r.status);
           // Separate from "Start Navigation" (which just views the map) --
           // only offered once there's actually something real to track
           // (vehicle side, booking genuinely Pickup/In Transit), same gate
           // the backend's PATCH /:id/location enforces.
-          const canTrackLive = mode === 'current' && trip && isVehicleSide(r, user) && ACTIVE_STATUSES.includes(r.status);
+          const canTrackLive = mode === 'current' && !restrictToDecision && trip && isVehicleSide(r, user) && ACTIVE_STATUSES.includes(r.status);
           const tone = requestTone(r.status);
           const rowClass = mode === 'history' ? `dv-req-row dv-req-row-history tone-${tone}` : 'dv-req-row';
+          const mapsUrl = trip ? googleMapsDirectionsUrl(trip.source, trip.destination) : null;
           return (
             <div
               key={r._id}
@@ -285,7 +326,22 @@ export default function RequestsPanel({ user, mode = 'current', focusId = null, 
                   {mode === 'history' && <span className="dv-req-time">{timeAgo(r.updatedAt || r.createdAt)}</span>}
                 </div>
               </div>
-              {mode === 'current' && (actions.length > 0 || (TRACKABLE_STATUSES.includes(r.status) && trip) || canSimulate) && (
+              {mode === 'current' && restrictToDecision && isDecisionStage && actions.length > 0 && (
+                <div className="dv-req-actions">
+                  {actions.map((a) => (
+                    <button
+                      key={a}
+                      className={a === 'rejected' || a === 'cancelled' ? 'btn btn-outline' : 'btn btn-primary'}
+                      style={{ fontSize: 13 }}
+                      disabled={busyId === r._id}
+                      onClick={() => act(r._id, a)}
+                    >
+                      {ACTION_LABELS[a] || a}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {mode === 'current' && !restrictToDecision && (actions.length > 0 || (TRACKABLE_STATUSES.includes(r.status) && trip) || canSimulate) && (
                 <div className="dv-req-actions">
                   {actions.map((a) => (
                     <button
@@ -324,6 +380,22 @@ export default function RequestsPanel({ user, mode = 'current', focusId = null, 
                     >
                       <IconZap size={13} /> {t('sim.fastForward', 'Simulate')}
                     </button>
+                  )}
+                </div>
+              )}
+              {mode === 'track' && trip && (
+                <div style={{ padding: '0 18px 18px' }}>
+                  <TripMap request={r} canShareLocation={isVehicleSide(r, user)} height={240} scrollWheelZoom={false} />
+                  {mapsUrl && (
+                    <a
+                      href={mapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-outline"
+                      style={{ fontSize: 12.5, textDecoration: 'none', marginTop: 10, display: 'inline-block' }}
+                    >
+                      {t('map.openInGoogleMaps', 'Open in Google Maps')} ↗
+                    </a>
                   )}
                 </div>
               )}

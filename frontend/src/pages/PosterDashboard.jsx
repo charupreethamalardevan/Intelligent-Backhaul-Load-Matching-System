@@ -26,6 +26,7 @@ import {
   IconClock,
   IconCheckCircle,
   IconWallet,
+  IconMapPin,
 } from '../components/icons.jsx';
 
 const ACTIVE_STATUSES = ['requested', 'accepted', 'confirmed', 'pickup', 'in_transit', 'delivered'];
@@ -231,7 +232,7 @@ function FindVehiclesTab({ loads }) {
 // Same pattern as FleetDashboard.jsx's NAV_SECTIONS/SECTION_META -- both
 // take `t` so the sidebar/topbar follow the picked language instead of
 // hardcoded English (Addendum 32).
-const NAV_SECTIONS = ({ t, openCount, activeRequestCount }) => [
+const NAV_SECTIONS = ({ t, openCount, activeRequestCount, trackableCount }) => [
   { items: [{ key: 'overview', label: t('dashboard.nav.overview'), icon: IconGrid }] },
   {
     title: 'Loads',
@@ -245,6 +246,10 @@ const NAV_SECTIONS = ({ t, openCount, activeRequestCount }) => [
     items: [{ key: 'requests', label: t('dashboard.nav.myRequests'), icon: IconClipboard, badge: activeRequestCount }],
   },
   {
+    title: 'Tracking',
+    items: [{ key: 'track-load', label: t('dashboard.nav.trackLoad', 'Track Load'), icon: IconMapPin, badge: trackableCount }],
+  },
+  {
     title: 'Payments',
     items: [{ key: 'payments', label: t('dashboard.nav.payments', 'Payments'), icon: IconWallet }],
   },
@@ -255,6 +260,10 @@ const SECTION_META = (t) => ({
   loads: { title: t('dashboard.section.loads.title'), subtitle: t('dashboard.section.loads.subtitle') },
   'find-vehicles': { title: t('dashboard.section.findVehicles.title'), subtitle: t('dashboard.section.findVehicles.subtitle') },
   requests: { title: t('dashboard.section.requests.title'), subtitle: t('dashboard.section.requests.subtitle') },
+  'track-load': {
+    title: t('dashboard.section.trackLoad.title', 'Track Load'),
+    subtitle: t('dashboard.section.trackLoad.subtitle', 'Live location for loads on the move.'),
+  },
   payments: {
     title: t('dashboard.section.payments.title', 'Payments'),
     subtitle: t('dashboard.section.payments.subtitle', 'Record payment and leave a rating once a trip is over.'),
@@ -307,6 +316,13 @@ export default function PosterDashboard({ user, onLogout }) {
 
   const openCount = useMemo(() => loads.filter((l) => l.status === 'open').length, [loads]);
   const activeRequestCount = useMemo(() => requests.filter((r) => ACTIVE_STATUSES.includes(r.status)).length, [requests]);
+  // Same set RequestsPanel's mode="track" filters to -- a vehicle is
+  // actually assigned and moving against this booking from Confirmed
+  // through Delivered, which is what "Track Load" is for.
+  const trackableCount = useMemo(
+    () => requests.filter((r) => ['confirmed', 'pickup', 'in_transit', 'delivered'].includes(r.status)).length,
+    [requests],
+  );
   const completedCount = useMemo(() => requests.filter((r) => r.status === 'completed').length, [requests]);
 
   const loadsChart = useMemo(() => bucketByDay(loads, (l) => l.createdAt, 14), [loads]);
@@ -352,7 +368,7 @@ export default function PosterDashboard({ user, onLogout }) {
     <DashboardShell
       brandMark="IB"
       brandName="IBLMS Poster"
-      navSections={NAV_SECTIONS({ t, openCount, activeRequestCount })}
+      navSections={NAV_SECTIONS({ t, openCount, activeRequestCount, trackableCount })}
       activeKey={section}
       onNavigate={setSection}
       pageTitle={meta.title}
@@ -397,7 +413,8 @@ export default function PosterDashboard({ user, onLogout }) {
 
       {section === 'loads' && <LoadsTab loads={loads} reload={reloadLoads} />}
       {section === 'find-vehicles' && <FindVehiclesTab loads={loads} />}
-      {section === 'requests' && <RequestsPanel user={user} />}
+      {section === 'requests' && <RequestsPanel user={user} restrictToDecision />}
+      {section === 'track-load' && <RequestsPanel user={user} mode="track" />}
       {section === 'payments' && <PaymentsPanel user={user} />}
     </DashboardShell>
   );

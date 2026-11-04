@@ -4,6 +4,7 @@ import TripMap from './TripMap.jsx';
 import { IconX } from './icons.jsx';
 import './TripMap.css';
 import { locationLabel } from '../lib/locationLabel.js';
+import { googleMapsDirectionsUrl } from '../lib/mapsLink.js';
 
 // The "Start Navigation" popup -- a large, centered, fully zoomable/
 // pannable map (real scroll-wheel zoom, not just the +/- buttons the
@@ -26,22 +27,7 @@ export default function TripMapModal({ request, canShareLocation, onClose, autoS
 
   if (!request) return null;
   const trip = request.tripId;
-
-  // Builds a Google Maps directions URL for "Open in Google Maps" below.
-  // Prefers real lat/lng (locationSchema.js) for a precise pin; falls
-  // back to the place's text label for older/unmigrated string data so
-  // the link still works, just less precisely pinned.
-  function mapsPoint(loc) {
-    if (!loc) return '';
-    if (typeof loc === 'object' && typeof loc.lat === 'number' && typeof loc.lng === 'number') {
-      return `${loc.lat},${loc.lng}`;
-    }
-    return encodeURIComponent(locationLabel(loc) || '');
-  }
-  const canOpenInMaps = !!(trip && trip.source && trip.destination);
-  const googleMapsUrl = canOpenInMaps
-    ? `https://www.google.com/maps/dir/?api=1&origin=${mapsPoint(trip.source)}&destination=${mapsPoint(trip.destination)}&travelmode=driving`
-    : null;
+  const googleMapsUrl = trip ? googleMapsDirectionsUrl(trip.source, trip.destination) : null;
 
   return (
     <>
@@ -57,7 +43,7 @@ export default function TripMapModal({ request, canShareLocation, onClose, autoS
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {canOpenInMaps && (
+            {googleMapsUrl && (
               <a
                 href={googleMapsUrl}
                 target="_blank"

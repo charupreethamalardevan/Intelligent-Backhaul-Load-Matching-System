@@ -1034,7 +1034,27 @@ function RouteInsightsTab() {
         <div style={{ padding: '0 18px 14px' }}>
           <RoutePreviewMap source={origin} destination={destination} />
         </div>
-        {demandError && <p style={{ color: 'var(--critical)', fontSize: 14, padding: '0 18px 14px' }}>{demandError}</p>}
+        {demandError && (
+          <div style={{ padding: '0 18px 14px' }}>
+            <p style={{ color: 'var(--critical)', fontSize: 14, margin: '0 0 6px' }}>{demandError}</p>
+            {/* This specific message means the ML microservice was asleep
+                (Render free tier sleeps it after 15 idle minutes and takes
+                ~30-60s to wake back up) -- not a real failure. The warm-ml
+                ping above already nudged it awake the moment this tab
+                opened, so by the time someone reads this and clicks Try
+                again, it has very likely finished waking up. */}
+            {demandError === 'The demand forecasting model is unavailable right now.' && (
+              <>
+                <p className="dv-cell-sub" style={{ margin: '0 0 8px' }}>
+                  This only happens right after a period of inactivity, while the forecasting service wakes back up (10-60s). It's almost always ready on the next try.
+                </p>
+                <button type="button" className="btn btn-outline" style={{ fontSize: 13 }} disabled={demandLoading} onClick={handleForecast}>
+                  {demandLoading ? 'Forecasting...' : 'Try again'}
+                </button>
+              </>
+            )}
+          </div>
+        )}
         {demand && (
           <div style={{ padding: '0 18px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
             <div>

@@ -136,9 +136,26 @@ def haversine_km(a, b):
     return R * 2 * math.atan2(math.sqrt(s), math.sqrt(1 - s))
 
 
+def city_name(x):
+    """Accepts either a plain city-name string (the pre-migration shape,
+    still used by a few callers like demand forecasting) or the newer
+    {label, lat, lng} location sub-document that Route.source/destination
+    and Load.pickupLocation/deliveryLocation send since the ER-diagram
+    migration (see backend/models/locationSchema.js). Without this, every
+    real booking's location was a dict, str(dict).lower() never matched
+    CITY_COORDS, and city_km() below silently returned None for every
+    real-data call -- which made build_features()/build_profitability_
+    features() always ineligible, so ML compatibility scoring and
+    profitability prediction were falling back to the rule-based score
+    only for all real data, with no visible error anywhere."""
+    if isinstance(x, dict):
+        return x.get("label") or x.get("name") or ""
+    return x
+
+
 def city_km(a, b):
-    a = CITY_COORDS.get(str(a or "").strip().lower())
-    b = CITY_COORDS.get(str(b or "").strip().lower())
+    a = CITY_COORDS.get(str(city_name(a) or "").strip().lower())
+    b = CITY_COORDS.get(str(city_name(b) or "").strip().lower())
     if not a or not b:
         return None
     return haversine_km(a, b)
@@ -459,8 +476,8 @@ def build_empty_run_features(vehicle, trip_source, trip_destination, available_f
     try:
         vtype = str(vehicle["vehicleType"])
         capacity = float(vehicle["maxCapacityTonnes"])
-        trip_source = str(trip_source or "").strip().lower()
-        trip_destination = str(trip_destination or "").strip().lower()
+        trip_source = str(city_name(trip_source) or "").strip().lower()
+        trip_destination = str(city_name(trip_destination) or "").strip().lower()
         available = parse_dt(available_from)
         nearby_count = float(compatible_loads_nearby_count)
     except (KeyError, TypeError, ValueError) as exc:

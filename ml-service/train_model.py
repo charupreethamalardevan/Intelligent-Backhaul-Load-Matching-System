@@ -314,7 +314,7 @@ the same features from raw vehicle/trip/load JSON, and returns a calibrated
 probability. The Node backend calls it as an optional, best-effort signal
 alongside -- never instead of -- the existing explainable rule-based score.
 """
-    with open("model/training_report.md", "w") as f:
+    with open("model/training_report.md", "w", encoding="utf-8") as f:
         f.write(report)
 
     print(json.dumps(metrics, indent=2))

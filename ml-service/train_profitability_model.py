@@ -273,7 +273,7 @@ alongside -- never instead of -- the existing explainable rule-based
 estimate in backend/services/profitability.js, which is completely
 unmodified.
 """
-    with open("model/profitability_training_report.md", "w") as f:
+    with open("model/profitability_training_report.md", "w", encoding="utf-8") as f:
         f.write(report)
 
     print(json.dumps(metrics, indent=2))

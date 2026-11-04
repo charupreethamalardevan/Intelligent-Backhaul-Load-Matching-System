@@ -18,8 +18,8 @@ model.
 
 ### Model selection (3-fold CV on a 18000-row training subsample, scored by MAE)
 - gradient_boosting: CV MAE 1.872 loads
-- hist_gradient_boosting: CV MAE 1.812 loads <- selected
-- random_forest: CV MAE 2.026 loads
+- hist_gradient_boosting: CV MAE 1.813 loads <- selected
+- random_forest: CV MAE 2.027 loads
 
 ## Dataset
 - 90000 synthetic route/date samples (90,000 generated, 72000 train / 18000 test, 80/20 split).

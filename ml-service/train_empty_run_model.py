@@ -301,7 +301,7 @@ Node backend calls it as an optional, best-effort signal -- on failure the
 UI simply omits the risk estimate for that trip, exactly like every other ML
 module in this project.
 """
-    with open("model/empty_run_training_report.md", "w") as f:
+    with open("model/empty_run_training_report.md", "w", encoding="utf-8") as f:
         f.write(report)
 
     print(json.dumps(metrics, indent=2))

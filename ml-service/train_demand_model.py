@@ -269,7 +269,7 @@ frontend -- there is no existing rule-based demand estimate in this project
 to show alongside it, so this module's entire output is the ML prediction
 (clearly labelled as such, same synthetic-data disclosure as Modules 1/2).
 """
-    with open("model/demand_training_report.md", "w") as f:
+    with open("model/demand_training_report.md", "w", encoding="utf-8") as f:
         f.write(report)
 
     print(json.dumps(metrics, indent=2))

@@ -24,7 +24,7 @@ IBLMS has never computed before.
 
 ### Model selection (3-fold CV on a 18000-row training subsample, scored by ROC-AUC)
 - gradient_boosting: CV ROC-AUC 0.7571 <- selected
-- hist_gradient_boosting: CV ROC-AUC 0.7536
+- hist_gradient_boosting: CV ROC-AUC 0.7540
 - random_forest: CV ROC-AUC 0.7497
 
 ### Calibration's own effect (isolated from the hyperparameter search)

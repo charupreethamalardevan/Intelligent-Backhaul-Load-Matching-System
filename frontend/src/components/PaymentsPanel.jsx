@@ -36,8 +36,16 @@ export default function PaymentsPanel({ user }) {
   const [requests, setRequests] = useState([]);
   const [payments, setPayments] = useState({}); // matchId -> payment | null, undefined while unresolved
   const [error, setError] = useState(null);
+  // The stat tiles below are computed from `requests` + `payments`
+  // together, but those come from two sequential fetches (the request
+  // list, then one GET per completed trip) -- without this flag the
+  // tiles render confidently wrong numbers ("Awaiting payment: 4",
+  // "Total settled: 0") for however long the payment fetches take,
+  // instead of showing nothing until both are actually in.
+  const [loading, setLoading] = useState(true);
 
   function load() {
+    setLoading(true);
     listRequests()
       .then((all) => {
         const completed = all.filter((r) => r.status === 'completed');
@@ -55,7 +63,8 @@ export default function PaymentsPanel({ user }) {
         );
       })
       .then((pairs) => setPayments(Object.fromEntries(pairs)))
-      .catch((err) => setError(err.message));
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
   }
 
   useEffect(load, []);
@@ -72,22 +81,28 @@ export default function PaymentsPanel({ user }) {
 
   return (
     <>
-      {requests.length > 0 && (
-        <div className="wg-overview-grid dv-section-gap">
-          <StatCard icon={IconWallet} label={t('dashboard.payments.totalSettled', 'Total settled')} value={`₹${totalSettled.toLocaleString('en-IN')}`} accent="good" />
-          <StatCard icon={IconCheckCircle} label={t('dashboard.payments.tripsPaid', 'Trips paid')} value={paidList.length} accent="blue" />
-          <StatCard icon={IconClock} label={t('dashboard.payments.awaitingPayment', 'Awaiting payment')} value={pendingCount} accent={pendingCount > 0 ? 'amber' : 'good'} />
-          <StatCard icon={IconClipboard} label={t('dashboard.payments.completedTrips', 'Completed trips')} value={requests.length} accent="violet" />
-        </div>
-      )}
+      {loading ? (
+        <div className="dv-empty dv-section-gap">{t('dashboard.payments.loadingSummary', 'Loading payment summary...')}</div>
+      ) : (
+        <>
+          {requests.length > 0 && (
+            <div className="wg-overview-grid dv-section-gap">
+              <StatCard icon={IconWallet} label={t('dashboard.payments.totalSettled', 'Total settled')} value={`₹${totalSettled.toLocaleString('en-IN')}`} accent="good" />
+              <StatCard icon={IconCheckCircle} label={t('dashboard.payments.tripsPaid', 'Trips paid')} value={paidList.length} accent="blue" />
+              <StatCard icon={IconClock} label={t('dashboard.payments.awaitingPayment', 'Awaiting payment')} value={pendingCount} accent={pendingCount > 0 ? 'amber' : 'good'} />
+              <StatCard icon={IconClipboard} label={t('dashboard.payments.completedTrips', 'Completed trips')} value={requests.length} accent="violet" />
+            </div>
+          )}
 
-      {methodChart.length > 1 && (
-        <div className="card dv-section-gap">
-          <div className="wg-panel-header">
-            <h3>{t('dashboard.payments.byMethod', 'Settled by method')}</h3>
-          </div>
-          <MiniBarChart data={methodChart} />
-        </div>
+          {methodChart.length > 1 && (
+            <div className="card dv-section-gap">
+              <div className="wg-panel-header">
+                <h3>{t('dashboard.payments.byMethod', 'Settled by method')}</h3>
+              </div>
+              <MiniBarChart data={methodChart} />
+            </div>
+          )}
+        </>
       )}
 
       <div className="dv-panel">

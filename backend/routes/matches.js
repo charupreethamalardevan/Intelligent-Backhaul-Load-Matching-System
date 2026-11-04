@@ -9,6 +9,7 @@ const Notification = require('../models/Notification');
 const Route = require('../models/Route');
 const Load = require('../models/Load');
 const Truck = require('../models/Truck');
+const User = require('../models/User');
 const { requireAuth } = require('../middleware/auth');
 const { scoreMatch } = require('../services/matching');
 const { findOverlappingLoad } = require('../services/truckAvailability');
@@ -62,7 +63,7 @@ async function sideOfCaller(req, match) {
 // shape the old LoadRequest collection used to return, with matchScore/
 // scoreBreakdown/profitability read back from the 3 prediction tables
 // instead of embedded fields.
-async function toLegacyRequestShape(match, { route, truck, load } = {}) {
+async function toLegacyRequestShape(match, { route, truck, load, requestedByContact } = {}) {
   const obj = match.toObject ? match.toObject() : match;
   const [scorePred, profitPred, routeFeas] = await Promise.all([
     MatchScorePrediction.findOne({ matchId: match._id }),
@@ -77,6 +78,13 @@ async function toLegacyRequestShape(match, { route, truck, load } = {}) {
     vehicleOwnerId: obj.truckOwnerId,
     loadPosterId: obj.loadPosterId,
     requestedBy: obj.requestedBy,
+    // Sibling field, NOT a replacement of requestedBy above -- the
+    // frontend's RequestsPanel.jsx still does
+    // `String(r.requestedBy) === String(user?.id)` to tell whose request
+    // this is, so requestedBy has to stay a bare id. This carries the
+    // requester's name/company/phone alongside it, same pattern as
+    // ownerContact in routes/matching.js's /for-load.
+    requestedByContact: requestedByContact || null,
     requestedByRole: obj.requestedByRole,
     status: obj.status,
     matchScore: scorePred ? scorePred.ruleBasedScore : null,
@@ -232,8 +240,25 @@ router.get('/', async (req, res) => {
       .populate('loadId')
       .sort({ createdAt: -1 });
 
+    // Who actually sent each request -- batch-fetched once, same pattern
+    // as ownerContact in routes/matching.js, instead of populating
+    // requestedBy directly (which would turn it into an object and break
+    // RequestsPanel.jsx's `String(r.requestedBy) === String(user?.id)`).
+    const requesterIds = [...new Set(matches.map((m) => String(m.requestedBy)))];
+    const requesters = await User.find({ _id: { $in: requesterIds } }).select('name companyName phone');
+    const requesterContactById = new Map(
+      requesters.map((u) => [String(u._id), { name: u.name, companyName: u.companyName, phone: u.phone }]),
+    );
+
     const requests = await Promise.all(
-      matches.map((m) => toLegacyRequestShape(m, { route: m.routeId, truck: m.truckId, load: m.loadId })),
+      matches.map((m) =>
+        toLegacyRequestShape(m, {
+          route: m.routeId,
+          truck: m.truckId,
+          load: m.loadId,
+          requestedByContact: requesterContactById.get(String(m.requestedBy)) || null,
+        }),
+      ),
     );
 
     res.json({ requests });
@@ -252,7 +277,16 @@ router.get('/:id', async (req, res) => {
     if (side === 'poster' && match.status === 'pending_fleet_approval') {
       return res.status(403).json({ error: 'This request has not been approved by the Fleet Owner yet.' });
     }
-    res.json({ request: await toLegacyRequestShape(match, { route: match.routeId, truck: match.truckId, load: match.loadId }) });
+    const requester = await User.findById(match.requestedBy).select('name companyName phone');
+    const requestedByContact = requester ? { name: requester.name, companyName: requester.companyName, phone: requester.phone } : null;
+    res.json({
+      request: await toLegacyRequestShape(match, {
+        route: match.routeId,
+        truck: match.truckId,
+        load: match.loadId,
+        requestedByContact,
+      }),
+    });
   } catch (err) {
     console.error('[matches/get]', err);
     res.status(500).json({ error: 'Could not load the request.' });
@@ -322,6 +356,29 @@ router.patch('/:id/status', async (req, res) => {
       await Load.findByIdAndUpdate(match.loadId, { status: 'open' });
     }
 
+    // Once this request is accepted, the load is spoken for -- auto-reject
+    // every other still-open request on the SAME load (e.g. two drivers
+    // both requested it before either was approved) instead of leaving
+    // them pending forever, and tell each rejected requester why.
+    if (nextStatus === 'accepted') {
+      const competingMatches = await Match.find({
+        loadId: match.loadId,
+        _id: { $ne: match._id },
+        status: { $in: ['pending_fleet_approval', 'requested'] },
+      });
+      for (const competing of competingMatches) {
+        competing.status = 'rejected';
+        await competing.save();
+        await Notification.create({
+          userId: competing.requestedBy,
+          type: 'match_status_change',
+          title: 'Request not accepted',
+          message: 'This load was matched with another vehicle, so your request was not accepted.',
+          relatedMatchId: competing._id,
+        });
+      }
+    }
+
     // ER-diagram NOTIFICATION: a real row for the other party whenever a
     // match's status changes, instead of only showing up to whoever
     // happens to be looking at this request right now.
@@ -340,7 +397,18 @@ router.patch('/:id/status', async (req, res) => {
     }
 
     const populated = await Match.findById(match._id).populate('routeId').populate('truckId').populate('loadId');
-    res.json({ request: await toLegacyRequestShape(populated, { route: populated.routeId, truck: populated.truckId, load: populated.loadId }) });
+    const finalRequester = await User.findById(populated.requestedBy).select('name companyName phone');
+    const finalRequestedByContact = finalRequester
+      ? { name: finalRequester.name, companyName: finalRequester.companyName, phone: finalRequester.phone }
+      : null;
+    res.json({
+      request: await toLegacyRequestShape(populated, {
+        route: populated.routeId,
+        truck: populated.truckId,
+        load: populated.loadId,
+        requestedByContact: finalRequestedByContact,
+      }),
+    });
   } catch (err) {
     console.error('[matches/update-status]', err);
     res.status(500).json({ error: 'Could not update the request status.' });

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { listRequests, updateRequestStatus, STATUS_LABELS, NEXT_ACTIONS } from '../lib/requestApi.js';
+import { contactLine } from './MatchResults.jsx';
 import { timeAgo, bucketByDay } from '../lib/time.js';
 import TripMapModal from './TripMapModal.jsx';
 import SimulateModal from './SimulateModal.jsx';
@@ -329,6 +330,9 @@ export default function RequestsPanel({ user, mode = 'current', focusId = null, 
                     {r.profitability && !r.profitability.error ? ` · Est. profit ₹${r.profitability.estimatedProfit}` : ''}
                   </div>
                   {hint && <div className="dv-req-hint">{hint}</div>}
+                  {!isRequester && contactLine(r.requestedByContact) && (
+                    <div className="dv-req-hint">{t('dashboard.requests.requestedBy', 'Requested by')}: {contactLine(r.requestedByContact)}</div>
+                  )}
                 </div>
                 <div className="dv-req-meta">
                   <span className={`dv-status-chip tone-${tone}`}>

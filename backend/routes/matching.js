@@ -112,7 +112,19 @@ router.get('/chain-for-trip/:tripId', async (req, res) => {
     }
 
     const vehicle = route.truckId;
-    const openLoads = await Load.find({ status: 'open' });
+    let openLoads = await Load.find({ status: 'open' });
+
+    // Same "a busy truck can't take an overlapping load" rule as
+    // /for-trip and /for-load above -- a chain comparison must not
+    // suggest either leg against a load this truck can't actually take,
+    // since both legs are drawn from this same filtered list. See
+    // services/truckAvailability.js.
+    const busyWindows = (await getBusyWindowsByTruck([vehicle._id])).get(String(vehicle._id)) || [];
+    if (busyWindows.length) {
+      openLoads = openLoads.filter(
+        (load) => !busyWindows.some((w) => windowsOverlap(new Date(load.pickupDateTime), new Date(load.deliveryDeadline), new Date(w.start), new Date(w.end))),
+      );
+    }
 
     const result = findBestChainForTrip({ vehicle, trip: route, openLoads });
     res.json({ trip: route, vehicle, ...result });

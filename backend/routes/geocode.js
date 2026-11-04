@@ -21,11 +21,13 @@ const FETCH_TIMEOUT_MS = 6000;
 // A simple module-level timestamp queues the next call rather than
 // hammering it -- fine for one small backend serving one app's users.
 let nextSlotAt = 0;
-async function throttledFetch(url) {
+async function nextSlot() {
   const wait = Math.max(0, nextSlotAt - Date.now());
   nextSlotAt = Math.max(Date.now(), nextSlotAt) + 1000;
   if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+}
 
+async function fetchOnce(url) {
   const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
   const timer = controller ? setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS) : null;
   try {
@@ -33,6 +35,22 @@ async function throttledFetch(url) {
   } finally {
     if (timer) clearTimeout(timer);
   }
+}
+
+// Observed live (while verifying a fix, not a one-off): a single
+// well-spaced request can still come back as a transient failure --
+// Nominatim is a shared public instance with its own moments of load,
+// not something a strict 1 req/sec client-side throttle fully protects
+// against. One retry after a short, separately-throttled backoff turns
+// an occasional blip into a normal response instead of surfacing
+// "temporarily unavailable" to the user on the first hiccup.
+async function throttledFetch(url) {
+  await nextSlot();
+  let res = await fetchOnce(url).catch((err) => ({ ok: false, status: 0, _networkError: err }));
+  if (res.ok) return res;
+  await nextSlot();
+  res = await fetchOnce(url).catch((err) => ({ ok: false, status: 0, _networkError: err }));
+  return res;
 }
 
 // GET /api/geocode/search?q=<free text> -- address/place autocomplete.
@@ -45,7 +63,7 @@ router.get('/search', async (req, res) => {
   try {
     const url = `${NOMINATIM_BASE}/search?format=jsonv2&addressdetails=0&limit=6&countrycodes=in&q=${encodeURIComponent(q)}`;
     const r = await throttledFetch(url);
-    if (!r.ok) throw new Error(`Nominatim responded ${r.status}`);
+    if (!r.ok) throw new Error(r._networkError ? r._networkError.message : `Nominatim responded ${r.status}`);
     const data = await r.json();
     const results = (Array.isArray(data) ? data : [])
       .map((d) => ({ label: d.display_name, lat: Number(d.lat), lng: Number(d.lon) }))
@@ -76,7 +94,7 @@ router.get('/reverse', async (req, res) => {
   try {
     const url = `${NOMINATIM_BASE}/reverse?format=jsonv2&lat=${lat}&lon=${lng}`;
     const r = await throttledFetch(url);
-    if (!r.ok) throw new Error(`Nominatim responded ${r.status}`);
+    if (!r.ok) throw new Error(r._networkError ? r._networkError.message : `Nominatim responded ${r.status}`);
     const data = await r.json();
     res.json({ label: data && data.display_name ? data.display_name : fallbackLabel, lat, lng });
   } catch (err) {

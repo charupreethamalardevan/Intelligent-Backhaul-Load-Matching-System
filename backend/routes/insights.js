@@ -133,8 +133,8 @@ router.get('/empty-run-risk', async (req, res) => {
       return {
         id: String(route._id),
         vehicle: { vehicleType: vehicle.vehicleType, maxCapacityTonnes: vehicle.maxCapacityTonnes },
-        tripSource: route.source,
-        tripDestination: route.destination,
+        tripSource: route.source.label,
+        tripDestination: route.destination.label,
         availableFrom: route.availableFrom,
         compatibleLoadsNearbyCount,
       };

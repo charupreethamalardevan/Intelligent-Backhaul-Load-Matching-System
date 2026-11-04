@@ -4,7 +4,7 @@ import TripMap from './TripMap.jsx';
 import { IconX } from './icons.jsx';
 import './TripMap.css';
 import { locationLabel } from '../lib/locationLabel.js';
-import { googleMapsDirectionsUrl } from '../lib/mapsLink.js';
+import { googleMapsDirectionsUrl, tripOrigin } from '../lib/mapsLink.js';
 
 // The "Start Navigation" popup -- a large, centered, fully zoomable/
 // pannable map (real scroll-wheel zoom, not just the +/- buttons the
@@ -27,7 +27,9 @@ export default function TripMapModal({ request, canShareLocation, onClose, autoS
 
   if (!request) return null;
   const trip = request.tripId;
-  const googleMapsUrl = trip ? googleMapsDirectionsUrl(trip.source, trip.destination) : null;
+  // Navigate from the truck's real live position once it has one, not
+  // from wherever the trip started -- see mapsLink.js's own comment.
+  const googleMapsUrl = trip ? googleMapsDirectionsUrl(tripOrigin(request), trip.destination) : null;
 
   return (
     <>

@@ -9,7 +9,7 @@ import { IconZap, IconCheckCircle, IconX, IconMapPin } from './icons.jsx';
 import { MiniLineChart, MiniBarChart } from './MiniCharts.jsx';
 import './dataViews.css';
 import { locationLabel } from '../lib/locationLabel.js';
-import { googleMapsDirectionsUrl } from '../lib/mapsLink.js';
+import { googleMapsDirectionsUrl, tripOrigin } from '../lib/mapsLink.js';
 
 // History-only status-breakdown colors -- History only ever contains the
 // 3 terminal statuses, so this is a smaller, dedicated palette rather
@@ -296,7 +296,8 @@ export default function RequestsPanel({ user, mode = 'current', focusId = null, 
           const canTrackLive = mode === 'current' && !restrictToDecision && trip && isVehicleSide(r, user) && ACTIVE_STATUSES.includes(r.status);
           const tone = requestTone(r.status);
           const rowClass = mode === 'history' ? `dv-req-row dv-req-row-history tone-${tone}` : 'dv-req-row';
-          const mapsUrl = trip ? googleMapsDirectionsUrl(trip.source, trip.destination) : null;
+          // Same live-position-first origin TripMapModal.jsx uses -- see mapsLink.js.
+          const mapsUrl = trip ? googleMapsDirectionsUrl(tripOrigin(r), trip.destination) : null;
           return (
             <div
               key={r._id}

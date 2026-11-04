@@ -6,13 +6,23 @@
 export const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000/api';
 const TOKEN_KEY = 'iblms_token';
 
+// sessionStorage, not localStorage: localStorage is shared by every tab
+// on this origin, so logging into a second demo account in another tab
+// (exactly the "two tabs, two logins" workflow the demo relies on) would
+// silently swap the token under the FIRST tab too -- its UI keeps
+// showing the old account's data (already loaded into React state) while
+// every new request now authenticates as whichever account logged in
+// last, anywhere. That produced real, confusing 403s like "You do not
+// have access to this vehicle" for a vehicle the visible account
+// genuinely owns. sessionStorage is per-tab, so each tab keeps its own
+// login independent of whatever happens in any other tab.
 export function getToken() {
-  return localStorage.getItem(TOKEN_KEY);
+  return sessionStorage.getItem(TOKEN_KEY);
 }
 
 export function setToken(token) {
-  if (token) localStorage.setItem(TOKEN_KEY, token);
-  else localStorage.removeItem(TOKEN_KEY);
+  if (token) sessionStorage.setItem(TOKEN_KEY, token);
+  else sessionStorage.removeItem(TOKEN_KEY);
 }
 
 // For plain JSON requests (login, etc).

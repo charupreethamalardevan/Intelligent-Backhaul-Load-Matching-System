@@ -1,13 +1,15 @@
 import { API_BASE } from './api.js'; // same backend base as the regular user API -- see api.js's comment
 const TOKEN_KEY = 'iblms_admin_token'; // separate from the regular user token on purpose
 
+// sessionStorage, not localStorage -- see api.js's getToken()/setToken()
+// comment; same per-tab reasoning applies to the admin session.
 export function getAdminToken() {
-  return localStorage.getItem(TOKEN_KEY);
+  return sessionStorage.getItem(TOKEN_KEY);
 }
 
 export function setAdminToken(token) {
-  if (token) localStorage.setItem(TOKEN_KEY, token);
-  else localStorage.removeItem(TOKEN_KEY);
+  if (token) sessionStorage.setItem(TOKEN_KEY, token);
+  else sessionStorage.removeItem(TOKEN_KEY);
 }
 
 export async function adminFetch(path, options = {}) {

@@ -1,19 +1,20 @@
 const mongoose = require('mongoose');
+const locationSchema = require('./locationSchema');
 
 // ER-diagram entity: ROUTE. Replaces the old Trip collection (see Trip.js,
-// kept temporarily only for the migration script) -- same real fields
-// (source/destination/availableFrom/status), plus `waypoints` so the trip
-// planner's map can show a real multi-point path rather than just two
-// endpoints (part of the "make the map realistic" requirement).
+// kept temporarily only for the migration script). source/destination are
+// now real {label, lat, lng} points (locationSchema.js) -- a geocoded
+// address, a map-clicked point, or the user's live GPS location -- instead
+// of a plain known-city-id string, so the Map and Route Module can show
+// (and the matching engine can score against) an actual place, not just
+// "Chennai". `waypoints` stays as optional purely-descriptive intermediate
+// points, same as before.
 const routeSchema = new mongoose.Schema(
   {
     truckId: { type: mongoose.Schema.Types.ObjectId, ref: 'Truck', required: true },
     truckOwnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'TruckOwner', required: true },
-    source: { type: String, required: true, trim: true },
-    destination: { type: String, required: true, trim: true },
-    // Optional intermediate points a driver plans to pass through --
-    // purely descriptive; the matching engine still scores against
-    // source/destination only, same as the old Trip-based flow.
+    source: { type: locationSchema, required: true },
+    destination: { type: locationSchema, required: true },
     waypoints: [
       {
         label: String,

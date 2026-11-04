@@ -107,24 +107,39 @@
   color: var(--primary);
 }
 
+/* round 3: these now read the shared --good/--critical/--info/--violet/
+   --teal tokens (index.css) instead of their own hardcoded hex, so they
+   stay in sync with the rest of the app's new colour system and get a
+   dark-mode step for free. amber keeps using --accent (the app's existing
+   "needs attention" gold) rather than a near-duplicate new amber token. */
 .wg-accent-blue {
-  background: color-mix(in srgb, #2563EB 16%, transparent);
-  color: #2563EB;
+  background: var(--info-soft);
+  color: var(--info);
 }
 
 .wg-accent-amber {
-  background: color-mix(in srgb, #D97706 16%, transparent);
-  color: #D97706;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .wg-accent-red {
-  background: color-mix(in srgb, #DC2626 14%, transparent);
-  color: #DC2626;
+  background: var(--critical-soft);
+  color: var(--critical);
 }
 
 .wg-accent-violet {
-  background: color-mix(in srgb, #7C3AED 14%, transparent);
-  color: #7C3AED;
+  background: var(--violet-soft);
+  color: var(--violet);
+}
+
+.wg-accent-good {
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+.wg-accent-teal {
+  background: var(--teal-soft);
+  color: var(--teal);
 }
 
 /* ---------- Charts ---------- */
@@ -156,6 +171,39 @@
   font-size: 12px;
   font-weight: 700;
   fill: var(--text);
+}
+
+.wg-chart-gridline {
+  stroke: var(--border);
+  stroke-width: 1;
+  opacity: 0.55;
+}
+
+/* Legend shown under a chart once it carries more than one colour (bar
+   charts with per-category colours) -- colour is never the only cue,
+   every swatch has its own label beside it. */
+.wg-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 8px;
+  padding: 0 4px;
+}
+
+.wg-chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.wg-chart-legend-sw {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  flex-shrink: 0;
 }
 
 /* ---------- Activity list ---------- */

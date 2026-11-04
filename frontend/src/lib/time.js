@@ -16,9 +16,13 @@ export function timeAgo(dateLike) {
 }
 
 // Buckets a list of items with a date-ish field into the last `days` daily
-// counts (oldest first), zero-filled for days with no activity -- used to
-// drive the signups/requests-over-time mini line charts.
-export function bucketByDay(items, getDate, days = 14) {
+// totals (oldest first), zero-filled for days with no activity -- used to
+// drive the signups/requests-over-time mini line charts. `getValue`
+// defaults to counting one per item; pass e.g. `(r) => r.profitability
+// ?.estimatedProfit || 0` to sum a numeric field per day instead (used by
+// the Fleet Overview earnings trend) -- the bucketing/zero-fill logic is
+// identical either way, only what gets added up per day changes.
+export function bucketByDay(items, getDate, days = 14, getValue = () => 1) {
   const buckets = [];
   const now = new Date();
   now.setHours(0, 0, 0, 0);
@@ -32,10 +36,10 @@ export function bucketByDay(items, getDate, days = 14) {
     const d = getDate(item);
     if (!d) continue;
     const key = new Date(d).toISOString().slice(0, 10);
-    if (byKey[key]) byKey[key].value += 1;
+    if (byKey[key]) byKey[key].value += getValue(item);
   }
   return buckets.map((b) => ({
     label: b.day.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }).replace(' ', ''),
-    value: b.value,
+    value: Math.round(b.value),
   }));
 }

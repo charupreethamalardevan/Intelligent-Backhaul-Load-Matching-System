@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { locationLabel } from '../lib/locationLabel.js';
 
 const FACTOR_LABELS = {
   routeCompatibility: 'Route Compatibility',
@@ -12,7 +13,7 @@ const FACTOR_LABELS = {
 };
 
 function ScoreRing({ score }) {
-  const color = score >= 75 ? 'var(--primary)' : score >= 50 ? '#D97706' : '#DC2626';
+  const color = score >= 75 ? 'var(--good)' : score >= 50 ? 'var(--accent)' : 'var(--critical)';
   return (
     <div
       style={{
@@ -47,7 +48,7 @@ function FactorBar({ label, value, weight }) {
           style={{
             height: '100%',
             width: `${Math.max(0, Math.min(100, value))}%`,
-            background: 'linear-gradient(90deg, color-mix(in srgb, var(--primary) 70%, white), var(--primary))',
+            background: 'linear-gradient(90deg, color-mix(in srgb, var(--info) 70%, white), var(--info))',
           }}
         />
       </div>
@@ -74,8 +75,8 @@ function MlBadge({ probability }) {
         display: 'inline-flex',
         alignItems: 'center',
         gap: 4,
-        background: 'color-mix(in srgb, var(--primary) 15%, transparent)',
-        color: 'var(--primary)',
+        background: 'color-mix(in srgb, var(--violet) 15%, transparent)',
+        color: 'var(--violet)',
         fontWeight: 700,
         padding: '2px 8px',
         borderRadius: 999,
@@ -103,8 +104,8 @@ function MlProfitabilityBadge({ marginPct }) {
         display: 'inline-flex',
         alignItems: 'center',
         gap: 4,
-        background: 'color-mix(in srgb, #D97706 15%, transparent)',
-        color: '#D97706',
+        background: 'color-mix(in srgb, var(--teal) 15%, transparent)',
+        color: 'var(--teal)',
         fontWeight: 700,
         padding: '2px 8px',
         borderRadius: 999,
@@ -144,7 +145,7 @@ export default function MatchResults({ matches, mode, fixedId, onRequest }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {error && <p style={{ color: '#DC2626', fontSize: 14 }}>{error}</p>}
+      {error && <p style={{ color: 'var(--critical)', fontSize: 14 }}>{error}</p>}
       {matches.map((m, idx) => {
         const key = mode === 'trip' ? m.load._id : `${m.trip._id}-${m.vehicle._id}`;
         const isOpen = expanded === key;
@@ -156,7 +157,7 @@ export default function MatchResults({ matches, mode, fixedId, onRequest }) {
                 {mode === 'trip' ? (
                   <>
                     <div style={{ fontWeight: 800, fontSize: 15 }}>
-                      {m.load.pickupLocation} → {m.load.deliveryLocation}
+                      {locationLabel(m.load.pickupLocation)} → {locationLabel(m.load.deliveryLocation)}
                     </div>
                     <div style={{ fontSize: 13.5, color: 'var(--muted)' }}>
                       {m.load.cargoType} · {m.load.cargoWeightTonnes}t · expects ₹{m.load.expectedPrice}
@@ -165,14 +166,14 @@ export default function MatchResults({ matches, mode, fixedId, onRequest }) {
                 ) : (
                   <>
                     <div style={{ fontWeight: 800, fontSize: 15 }}>
-                      {m.trip.source} → {m.trip.destination}
+                      {locationLabel(m.trip.source)} → {locationLabel(m.trip.destination)}
                     </div>
                     <div style={{ fontSize: 13.5, color: 'var(--muted)' }}>
                       {m.vehicle.vehicleNumber} · {m.vehicle.vehicleType.replace('_', ' ')} · {m.vehicle.maxCapacityTonnes}t capacity
                     </div>
                   </>
                 )}
-                <div style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 700, marginTop: 2 }}>
+                <div style={{ fontSize: 13, color: 'var(--teal)', fontWeight: 700, marginTop: 2 }}>
                   Detour: {m.detourKm} km
                   {m.profitability && !m.profitability.error ? ` · Est. profit ₹${m.profitability.estimatedProfit}` : ''}
                 </div>

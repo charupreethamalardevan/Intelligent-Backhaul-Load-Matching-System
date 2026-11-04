@@ -8,12 +8,14 @@ import { createRequest, listRequests, STATUS_LABELS } from '../lib/requestApi.js
 import { timeAgo, bucketByDay } from '../lib/time.js';
 import MatchResults from '../components/MatchResults.jsx';
 import RequestsPanel from '../components/RequestsPanel.jsx';
+import PaymentsPanel from '../components/PaymentsPanel.jsx';
 import DashboardShell from '../components/DashboardShell.jsx';
 import StatCard from '../components/StatCard.jsx';
 import { MiniLineChart, MiniBarChart } from '../components/MiniCharts.jsx';
 import ActivityList from '../components/ActivityList.jsx';
-import LocationSelect from '../components/LocationSelect.jsx';
+import AddressInput from '../components/AddressInput.jsx';
 import RoutePreviewMap from '../components/RoutePreviewMap.jsx';
+import { locationLabel } from '../lib/locationLabel.js';
 import { CARGO_TYPES, VEHICLE_TYPE_INFO } from '../lib/catalog.js';
 import {
   IconGrid,
@@ -23,13 +25,21 @@ import {
   IconSearch,
   IconClock,
   IconCheckCircle,
+  IconWallet,
 } from '../components/icons.jsx';
 
 const ACTIVE_STATUSES = ['requested', 'accepted', 'confirmed', 'pickup', 'in_transit', 'delivered'];
 
+// Round-4 colour pass (Addendum 65): Load.status was rendered as plain
+// inline text with no colour at all -- this maps it onto the same shared
+// .dv-status-chip tone system Current Trip/History/Vehicles already use
+// (see dataViews.css), so a posted load's state reads at a glance instead
+// of being just another word in a muted line of text.
+const LOAD_STATUS_TONE = { open: 'open', matched: 'active', completed: 'done', cancelled: 'rejected' };
+
 const EMPTY_FORM = {
-  pickupLocation: '',
-  deliveryLocation: '',
+  pickupLocation: null,
+  deliveryLocation: null,
   cargoType: '',
   cargoWeightTonnes: '',
   requiredVehicleType: 'any',
@@ -48,6 +58,13 @@ function LoadsTab({ loads, reload }) {
   async function handleCreate(e) {
     e.preventDefault();
     setError(null);
+    // AddressInput only ever hands back a real {label, lat, lng} point or
+    // null -- catch an unresolved pick here before it even reaches the
+    // network, same guard FleetDashboard's Plan-a-Trip form has.
+    if (!form.pickupLocation || !form.deliveryLocation) {
+      setError('Pick a pickup and delivery location from the suggestions, a quick city, your location, or the map.');
+      return;
+    }
     setSaving(true);
     try {
       await createLoad({
@@ -72,11 +89,11 @@ function LoadsTab({ loads, reload }) {
         <form onSubmit={handleCreate} style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginTop: 10 }}>
           <div className="field">
             <label className="field-label" htmlFor="load-pickup">{t('forms.load.pickup')}</label>
-            <LocationSelect id="load-pickup" value={form.pickupLocation} onChange={(v) => setForm({ ...form, pickupLocation: v })} placeholder={t('forms.load.pickupPlaceholder')} required />
+            <AddressInput id="load-pickup" value={form.pickupLocation} onChange={(v) => setForm({ ...form, pickupLocation: v })} placeholder={t('forms.load.pickupPlaceholder')} required allowLiveLocation />
           </div>
           <div className="field">
             <label className="field-label" htmlFor="load-delivery">{t('forms.load.delivery')}</label>
-            <LocationSelect id="load-delivery" value={form.deliveryLocation} onChange={(v) => setForm({ ...form, deliveryLocation: v })} placeholder={t('forms.load.deliveryPlaceholder')} required />
+            <AddressInput id="load-delivery" value={form.deliveryLocation} onChange={(v) => setForm({ ...form, deliveryLocation: v })} placeholder={t('forms.load.deliveryPlaceholder')} required />
           </div>
           <div className="field">
             <label className="field-label" htmlFor="load-cargo-type">{t('forms.load.cargoType')}</label>
@@ -128,7 +145,7 @@ function LoadsTab({ loads, reload }) {
             {saving ? t('forms.load.submitting') : t('forms.load.submit')}
           </button>
         </form>
-        {error && <p style={{ color: '#DC2626', fontSize: 14, marginTop: 8 }}>{error}</p>}
+        {error && <p style={{ color: 'var(--critical)', fontSize: 14, marginTop: 8 }}>{error}</p>}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -136,10 +153,11 @@ function LoadsTab({ loads, reload }) {
           <div key={l._id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 800, fontSize: 15 }}>
-                {l.pickupLocation} → {l.deliveryLocation}
+                {locationLabel(l.pickupLocation)} → {locationLabel(l.deliveryLocation)}
               </div>
-              <div style={{ fontSize: 13.5, color: 'var(--muted)' }}>
-                {l.cargoType} · {l.cargoWeightTonnes}t · ₹{l.expectedPrice} · {l.status}
+              <div style={{ fontSize: 13.5, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                {l.cargoType} · {l.cargoWeightTonnes}t · ₹{l.expectedPrice}
+                <span className={`dv-status-chip tone-${LOAD_STATUS_TONE[l.status] || 'open'}`}>{l.status}</span>
               </div>
             </div>
             <button className="btn btn-outline" style={{ fontSize: 13, flexShrink: 0 }} onClick={() => deleteLoad(l._id).then(reload)}>
@@ -188,7 +206,7 @@ function FindVehiclesTab({ loads }) {
             <option value="">{t('forms.findVehicles.selectLoad')}</option>
             {open.map((l) => (
               <option key={l._id} value={l._id}>
-                {l.pickupLocation} → {l.deliveryLocation} ({l.cargoType})
+                {locationLabel(l.pickupLocation)} → {locationLabel(l.deliveryLocation)} ({l.cargoType})
               </option>
             ))}
           </select>
@@ -197,7 +215,7 @@ function FindVehiclesTab({ loads }) {
       </div>
 
       {loading && <p style={{ fontSize: 14, color: 'var(--muted)' }}>{t('forms.findVehicles.scoring')}</p>}
-      {error && <p style={{ color: '#DC2626', fontSize: 14 }}>{error}</p>}
+      {error && <p style={{ color: 'var(--critical)', fontSize: 14 }}>{error}</p>}
       {result && (
         <MatchResults
           matches={result.matches}
@@ -226,6 +244,10 @@ const NAV_SECTIONS = ({ t, openCount, activeRequestCount }) => [
     title: 'Requests',
     items: [{ key: 'requests', label: t('dashboard.nav.myRequests'), icon: IconClipboard, badge: activeRequestCount }],
   },
+  {
+    title: 'Payments',
+    items: [{ key: 'payments', label: t('dashboard.nav.payments', 'Payments'), icon: IconWallet }],
+  },
 ];
 
 const SECTION_META = (t) => ({
@@ -233,15 +255,22 @@ const SECTION_META = (t) => ({
   loads: { title: t('dashboard.section.loads.title'), subtitle: t('dashboard.section.loads.subtitle') },
   'find-vehicles': { title: t('dashboard.section.findVehicles.title'), subtitle: t('dashboard.section.findVehicles.subtitle') },
   requests: { title: t('dashboard.section.requests.title'), subtitle: t('dashboard.section.requests.subtitle') },
+  payments: {
+    title: t('dashboard.section.payments.title', 'Payments'),
+    subtitle: t('dashboard.section.payments.subtitle', 'Record payment and leave a rating once a trip is over.'),
+  },
 });
 
 // Same stable-key / translated-fallback pattern as FleetDashboard.jsx's
 // identical chart -- see the comment there.
+// Round 3 colour pass: same status-token mapping as FleetDashboard.jsx's
+// identical bucket list (index.css's new --accent/--info/--good/--critical
+// tokens) so this bar chart stops rendering every status in plain black.
 const REQUEST_STATUS_BUCKETS = [
-  { key: 'pendingApproval', fallback: 'Pending approval' },
-  { key: 'active', fallback: 'Active' },
-  { key: 'completed', fallback: 'Completed' },
-  { key: 'rejectedCancelled', fallback: 'Rejected / cancelled' },
+  { key: 'pendingApproval', fallback: 'Pending approval', color: 'var(--accent)' },
+  { key: 'active', fallback: 'Active', color: 'var(--info)' },
+  { key: 'completed', fallback: 'Completed', color: 'var(--good)' },
+  { key: 'rejectedCancelled', fallback: 'Rejected / cancelled', color: 'var(--critical)' },
 ];
 
 export default function PosterDashboard({ user, onLogout }) {
@@ -265,6 +294,15 @@ export default function PosterDashboard({ user, onLogout }) {
     warmMl().catch(() => {});
     reloadLoads();
     reloadRequests();
+
+    // Same 20s "live" poll FleetDashboard.jsx's Overview now uses (and
+    // NotificationBell.jsx already did) -- keeps the stat tiles and the
+    // loadsChart/requestStatusChart below in sync without a socket.
+    const liveTimer = setInterval(() => {
+      reloadLoads();
+      reloadRequests();
+    }, 20000);
+    return () => clearInterval(liveTimer);
   }, []);
 
   const openCount = useMemo(() => loads.filter((l) => l.status === 'open').length, [loads]);
@@ -281,9 +319,10 @@ export default function PosterDashboard({ user, onLogout }) {
       else if (r.status === 'completed') counts.completed += 1;
       else counts.rejectedCancelled += 1;
     }
-    return REQUEST_STATUS_BUCKETS.map(({ key, fallback }) => ({
+    return REQUEST_STATUS_BUCKETS.map(({ key, fallback, color }) => ({
       label: t(`charts.requestStatus.${key}`, fallback),
       value: counts[key],
+      color,
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see
     // FleetDashboard.jsx's identical comment on this same pattern.
@@ -297,9 +336,9 @@ export default function PosterDashboard({ user, onLogout }) {
         .map((r) => ({
           id: r._id,
           icon: r.status === 'pending_fleet_approval' ? IconClock : r.status === 'rejected' || r.status === 'cancelled' ? IconClock : IconCheckCircle,
-          accent: r.status === 'pending_fleet_approval' ? 'amber' : r.status === 'rejected' || r.status === 'cancelled' ? 'red' : 'primary',
-          title: r.loadId ? `${r.loadId.pickupLocation} → ${r.loadId.deliveryLocation}` : 'Load removed',
-          subtitle: `${r.tripId ? `Carried by ${r.tripId.source} → ${r.tripId.destination}` : 'Trip removed'} · ${t(`status.${r.status}`, STATUS_LABELS[r.status] || r.status)}`,
+          accent: r.status === 'pending_fleet_approval' ? 'amber' : r.status === 'rejected' || r.status === 'cancelled' ? 'red' : r.status === 'completed' ? 'good' : 'blue',
+          title: r.loadId ? `${locationLabel(r.loadId.pickupLocation)} → ${locationLabel(r.loadId.deliveryLocation)}` : 'Load removed',
+          subtitle: `${r.tripId ? `Carried by ${locationLabel(r.tripId.source)} → ${locationLabel(r.tripId.destination)}` : 'Trip removed'} · ${t(`status.${r.status}`, STATUS_LABELS[r.status] || r.status)}`,
           time: timeAgo(r.createdAt),
         })),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see
@@ -325,18 +364,19 @@ export default function PosterDashboard({ user, onLogout }) {
       {section === 'overview' && (
         <>
           <div className="wg-overview-grid">
-            <StatCard icon={IconBox} label="Loads posted" value={loads.length} accent="primary" />
+            <StatCard icon={IconBox} label="Loads posted" value={loads.length} accent="teal" />
             <StatCard icon={IconSearch} label="Open loads" value={openCount} accent="blue" />
             <StatCard icon={IconClipboard} label="Active requests" value={activeRequestCount} accent="amber" />
-            <StatCard icon={IconCheckCircle} label="Completed" value={completedCount} accent="primary" />
+            <StatCard icon={IconCheckCircle} label="Completed" value={completedCount} accent="good" />
           </div>
 
           <div className="wg-row-2">
             <div className="card">
               <div className="wg-panel-header">
                 <h3>Loads posted, last 14 days</h3>
+                <span className="wg-panel-sub">Updates automatically</span>
               </div>
-              <MiniLineChart data={loadsChart} emptyText="No loads posted yet." />
+              <MiniLineChart data={loadsChart} color="var(--teal)" emptyText="No loads posted yet." />
             </div>
             <div className="card">
               <div className="wg-panel-header">
@@ -358,6 +398,7 @@ export default function PosterDashboard({ user, onLogout }) {
       {section === 'loads' && <LoadsTab loads={loads} reload={reloadLoads} />}
       {section === 'find-vehicles' && <FindVehiclesTab loads={loads} />}
       {section === 'requests' && <RequestsPanel user={user} />}
+      {section === 'payments' && <PaymentsPanel user={user} />}
     </DashboardShell>
   );
 }

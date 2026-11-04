@@ -22,12 +22,35 @@ import {
 // /admin directly, same as the original IBLMS project's own Admin design.
 export default function AdminPage() {
   const [loggedIn, setLoggedIn] = useState(!!getAdminToken());
+  // Set only when a 401 from a live admin call bounces the session back to
+  // login (see handleAdminError in AdminDashboard below) -- never set for
+  // an explicit click on the logout button -- so the login screen can tell
+  // the two apart and explain why it's showing up again.
+  const [sessionExpired, setSessionExpired] = useState(false);
 
-  if (!loggedIn) return <AdminLogin onLoggedIn={() => setLoggedIn(true)} />;
-  return <AdminDashboard onLogout={() => { setAdminToken(null); setLoggedIn(false); }} />;
+  if (!loggedIn) {
+    return (
+      <AdminLogin
+        sessionExpired={sessionExpired}
+        onLoggedIn={() => {
+          setSessionExpired(false);
+          setLoggedIn(true);
+        }}
+      />
+    );
+  }
+  return (
+    <AdminDashboard
+      onLogout={(reason) => {
+        setAdminToken(null);
+        setLoggedIn(false);
+        setSessionExpired(reason === 'expired');
+      }}
+    />
+  );
 }
 
-function AdminLogin({ onLoggedIn }) {
+function AdminLogin({ onLoggedIn, sessionExpired }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
@@ -72,10 +95,15 @@ function AdminLogin({ onLoggedIn }) {
           </div>
           <h3 style={{ margin: 0 }}>Admin login</h3>
         </div>
+        {sessionExpired && (
+          <p style={{ fontSize: 13.5, color: 'var(--accent)', background: 'var(--accent-soft)', padding: '8px 10px', borderRadius: 8, marginTop: 10 }}>
+            Your admin session expired -- please log in again.
+          </p>
+        )}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
           <input className="input" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} required />
           <input className="input" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-          {error && <p style={{ color: '#DC2626', fontSize: 14 }}>{error}</p>}
+          {error && <p style={{ color: 'var(--critical)', fontSize: 14 }}>{error}</p>}
           <button className="btn btn-primary" type="submit" disabled={loading}>
             {loading ? 'Logging in...' : 'Log in'}
           </button>
@@ -133,14 +161,41 @@ function AdminDashboard({ onLogout }) {
   const [docBusyId, setDocBusyId] = useState(null);
   const [docError, setDocError] = useState(null);
 
+  // Round-4 bug fix (Addendum 66): a 401 from any admin endpoint means the
+  // admin SESSION itself is the problem (expired token, wrong/old
+  // JWT_SECRET, etc. -- see middleware/adminAuth.js), not "there's no
+  // data." Previously every section just rendered its own empty state (or,
+  // on Overview specifically, swallowed the error entirely -- fixed
+  // separately above) while the sidebar kept showing "Admin / Super admin"
+  // as if nothing were wrong, which is exactly what made this look like a
+  // "no data" bug instead of an auth bug. Any 401 now immediately calls the
+  // same onLogout() the explicit logout button uses, bouncing back to a
+  // fresh login form instead of leaving a half-broken dashboard on screen.
+  // Returns true if it handled the error (caller should skip setError).
+  function handleAdminError(err) {
+    if (err.status === 401) {
+      onLogout('expired');
+      return true;
+    }
+    return false;
+  }
+
   function loadStats() {
-    adminFetch('/admin/stats').then(setStats).catch(() => {});
+    adminFetch('/admin/stats')
+      .then(setStats)
+      .catch((err) => {
+        if (!handleAdminError(err)) setError(err.message);
+      });
   }
 
   // Fetched once (no status filter) to drive Overview's charts/activity --
   // independent of whichever account-status section is currently open.
   function loadAllUsers() {
-    adminFetch('/admin/users').then((d) => setAllUsers(d.users)).catch(() => {});
+    adminFetch('/admin/users')
+      .then((d) => setAllUsers(d.users))
+      .catch((err) => {
+        if (!handleAdminError(err)) setError(err.message);
+      });
   }
 
   function loadSectionUsers() {
@@ -148,7 +203,9 @@ function AdminDashboard({ onLogout }) {
     const q = section === 'all' ? '' : `?status=${section}`;
     adminFetch(`/admin/users${q}`)
       .then((d) => setSectionUsers(d.users))
-      .catch((err) => setError(err.message));
+      .catch((err) => {
+        if (!handleAdminError(err)) setError(err.message);
+      });
   }
 
   // Fetched once (no status filter), same "overview badge needs it
@@ -158,7 +215,9 @@ function AdminDashboard({ onLogout }) {
   function loadDocuments() {
     listDocuments()
       .then(setDocuments)
-      .catch((err) => setDocError(err.message));
+      .catch((err) => {
+        if (!handleAdminError(err)) setDocError(err.message);
+      });
   }
 
   useEffect(loadStats, []);
@@ -175,7 +234,7 @@ function AdminDashboard({ onLogout }) {
       loadAllUsers();
       loadSectionUsers();
     } catch (err) {
-      setError(err.message);
+      if (!handleAdminError(err)) setError(err.message);
     } finally {
       setBusyId(null);
     }
@@ -189,7 +248,7 @@ function AdminDashboard({ onLogout }) {
       else await rejectDocument(id);
       loadDocuments();
     } catch (err) {
-      setDocError(err.message);
+      if (!handleAdminError(err)) setDocError(err.message);
     } finally {
       setDocBusyId(null);
     }
@@ -216,7 +275,7 @@ function AdminDashboard({ onLogout }) {
         .map((u) => ({
           id: u.id,
           icon: u.status === 'pending' ? IconClock : u.status === 'rejected' ? IconX : IconCheckCircle,
-          accent: u.status === 'pending' ? 'amber' : u.status === 'rejected' ? 'red' : 'primary',
+          accent: u.status === 'pending' ? 'amber' : u.status === 'rejected' ? 'red' : 'good',
           title: u.name || u.companyName || u.email,
           subtitle: `${ROLE_LABELS[u.role] || u.role} · ${u.status}`,
           time: timeAgo(u.createdAt),
@@ -242,10 +301,11 @@ function AdminDashboard({ onLogout }) {
     >
       {section === 'overview' ? (
         <>
+          {error && <p style={{ color: 'var(--critical)', fontSize: 14, marginBottom: 10 }}>{error}</p>}
           <div className="wg-overview-grid">
-            <StatCard icon={IconUsers} label="Total accounts" value={stats?.total ?? '—'} accent="primary" />
+            <StatCard icon={IconUsers} label="Total accounts" value={stats?.total ?? '—'} accent="violet" />
             <StatCard icon={IconClock} label="Pending review" value={stats?.pending ?? '—'} accent="amber" />
-            <StatCard icon={IconCheckCircle} label="Approved" value={stats?.approved ?? '—'} accent="primary" />
+            <StatCard icon={IconCheckCircle} label="Approved" value={stats?.approved ?? '—'} accent="good" />
             <StatCard icon={IconX} label="Rejected" value={stats?.rejected ?? '—'} accent="red" />
           </div>
 
@@ -255,7 +315,7 @@ function AdminDashboard({ onLogout }) {
                 <h3>Signups, last 14 days</h3>
                 <span className="wg-panel-sub">{allUsers.length} total accounts</span>
               </div>
-              <MiniLineChart data={signupsChart} emptyText="No signups yet." />
+              <MiniLineChart data={signupsChart} color="var(--violet)" emptyText="No signups yet." />
             </div>
             <div className="card">
               <div className="wg-panel-header">
@@ -281,10 +341,21 @@ function AdminDashboard({ onLogout }) {
   );
 }
 
+// Round-4 colour pass (Addendum 65): both status pills below used the
+// exact same gold chip regardless of state (pending/approved/verified/
+// rejected all read identically), the one spot in the whole app where a
+// status still carried zero colour signal. Mapped onto the same reserved
+// --good/--accent/--critical tokens Payment/History/Overview already use.
+function statusToneColors(status) {
+  if (status === 'approved' || status === 'verified') return { bg: 'var(--good-soft)', fg: 'var(--good)' };
+  if (status === 'rejected') return { bg: 'var(--critical-soft)', fg: 'var(--critical)' };
+  return { bg: 'var(--accent-soft)', fg: 'var(--accent)' }; // pending
+}
+
 function DocumentsSection({ documents, busyId, onAct, error }) {
   return (
     <>
-      {error && <p style={{ color: '#DC2626', fontSize: 14, marginBottom: 10 }}>{error}</p>}
+      {error && <p style={{ color: 'var(--critical)', fontSize: 14, marginBottom: 10 }}>{error}</p>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {documents.map((d) => (
           <div key={d._id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
@@ -305,8 +376,8 @@ function DocumentsSection({ documents, busyId, onAct, error }) {
                   textTransform: 'uppercase',
                   padding: '4px 10px',
                   borderRadius: 999,
-                  background: 'var(--accent-soft)',
-                  color: 'var(--primary)',
+                  background: statusToneColors(d.verificationStatus).bg,
+                  color: statusToneColors(d.verificationStatus).fg,
                 }}
               >
                 {d.verificationStatus}
@@ -333,7 +404,7 @@ function DocumentsSection({ documents, busyId, onAct, error }) {
 function AccountsSection({ section, users, busyId, onAct, error }) {
   return (
     <>
-      {error && <p style={{ color: '#DC2626', fontSize: 14, marginBottom: 10 }}>{error}</p>}
+      {error && <p style={{ color: 'var(--critical)', fontSize: 14, marginBottom: 10 }}>{error}</p>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {users.map((u) => (
           <div key={u.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
@@ -356,8 +427,8 @@ function AccountsSection({ section, users, busyId, onAct, error }) {
                   textTransform: 'uppercase',
                   padding: '4px 10px',
                   borderRadius: 999,
-                  background: 'var(--accent-soft)',
-                  color: 'var(--primary)',
+                  background: statusToneColors(u.status).bg,
+                  color: statusToneColors(u.status).fg,
                 }}
               >
                 {u.status}

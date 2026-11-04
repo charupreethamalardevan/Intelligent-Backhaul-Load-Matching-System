@@ -40,8 +40,20 @@ const ProfitabilityPrediction = require('../models/ProfitabilityPrediction');
 const RouteFeasibility = require('../models/RouteFeasibility');
 const Rating = require('../models/Rating');
 const { scoreMatch } = require('../services/matching');
+const { CITY_COORDS } = require('../utils/distance');
 
 const DEMO_PASSWORD = 'Demo@12345';
+
+// Route/Load now store {label, lat, lng} points, not a plain city string
+// (see models/locationSchema.js) -- this seed data still just names known
+// cities, so resolve each one through the same CITY_COORDS table the
+// matching engine itself is built from, rather than writing a string the
+// new schema would reject.
+function cityLoc(name) {
+  const coords = CITY_COORDS[String(name).trim().toLowerCase()];
+  if (!coords) throw new Error(`cityLoc: "${name}" is not in CITY_COORDS -- add it there first.`);
+  return { label: name, lat: coords[0], lng: coords[1] };
+}
 
 const DEMO_USER_SPECS = [
   { email: 'demo.fleetowner@iblms.test', role: 'fleet_owner', name: 'Demo Fleet Owner', companyName: 'Demo Fleet Logistics Pvt Ltd' },
@@ -125,18 +137,22 @@ async function ensureTruck(ownerId, spec) {
 }
 
 async function ensureRoute(truck, ownerId, spec) {
-  let route = await Route.findOne({ truckId: truck._id, source: spec.source, destination: spec.destination, status: { $ne: 'cancelled' } });
+  const source = cityLoc(spec.source);
+  const destination = cityLoc(spec.destination);
+  let route = await Route.findOne({ truckId: truck._id, 'source.label': source.label, 'destination.label': destination.label, status: { $ne: 'cancelled' } });
   if (!route) {
-    route = await Route.create({ truckId: truck._id, truckOwnerId: ownerId, ...spec });
+    route = await Route.create({ truckId: truck._id, truckOwnerId: ownerId, ...spec, source, destination });
     console.log(`  [create] route ${spec.source} -> ${spec.destination} for truck ${truck.vehicleNumber}`);
   }
   return route;
 }
 
 async function ensureLoad(posterId, spec) {
-  let load = await Load.findOne({ postedBy: posterId, pickupLocation: spec.pickupLocation, deliveryLocation: spec.deliveryLocation, cargoType: spec.cargoType, expectedPrice: spec.expectedPrice });
+  const pickupLocation = cityLoc(spec.pickupLocation);
+  const deliveryLocation = cityLoc(spec.deliveryLocation);
+  let load = await Load.findOne({ postedBy: posterId, 'pickupLocation.label': pickupLocation.label, 'deliveryLocation.label': deliveryLocation.label, cargoType: spec.cargoType, expectedPrice: spec.expectedPrice });
   if (!load) {
-    load = await Load.create({ postedBy: posterId, ...spec });
+    load = await Load.create({ postedBy: posterId, ...spec, pickupLocation, deliveryLocation });
     if (spec.createdAtOverride) await backdate(Load, load._id, spec.createdAtOverride);
     console.log(`  [create] load ${spec.pickupLocation} -> ${spec.deliveryLocation} for poster ${posterId}`);
   }

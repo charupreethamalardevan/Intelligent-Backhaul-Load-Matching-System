@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Polyline } from 'react-leaflet';
 import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { getLocationCoords } from '../lib/locationApi.js';
+import { resolvePoint } from '../lib/resolvePoint.js';
 import { getRoutePath } from '../lib/routeGeometry.js';
 import './TripMap.css';
 
@@ -53,11 +53,9 @@ export default function RoutePreviewMap({ source, destination, height = 200 }) {
     setNotFound(false);
     setRoute(null);
     if (!source || !destination) return undefined;
-    getLocationCoords()
-      .then((map) => {
+    Promise.all([resolvePoint(source), resolvePoint(destination)])
+      .then(([s, d]) => {
         if (cancelled) return;
-        const s = map[String(source).toLowerCase()];
-        const d = map[String(destination).toLowerCase()];
         if (s && d) setCoords({ source: s, destination: d });
         else setNotFound(true);
       })

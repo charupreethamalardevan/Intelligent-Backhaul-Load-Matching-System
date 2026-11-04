@@ -1,4 +1,4 @@
-const { cityDistanceKm } = require('../utils/distance');
+const { distanceKm } = require('../utils/distance');
 const { estimateProfitability } = require('./profitability');
 
 // The weights from SRS Section 6. Centralized and named, not hard-coded
@@ -39,10 +39,10 @@ function checkHardConstraints({ vehicle, trip, load }) {
 }
 
 function scoreRoute({ trip, load }) {
-  const toPickup = cityDistanceKm(trip.source, load.pickupLocation);
-  const loaded = cityDistanceKm(load.pickupLocation, load.deliveryLocation);
-  const fromDelivery = cityDistanceKm(load.deliveryLocation, trip.destination);
-  const direct = cityDistanceKm(trip.source, trip.destination);
+  const toPickup = distanceKm(trip.source, load.pickupLocation);
+  const loaded = distanceKm(load.pickupLocation, load.deliveryLocation);
+  const fromDelivery = distanceKm(load.deliveryLocation, trip.destination);
+  const direct = distanceKm(trip.source, trip.destination);
   if (toPickup == null || loaded == null || fromDelivery == null || direct == null) return null;
 
   const total = toPickup + loaded + fromDelivery;

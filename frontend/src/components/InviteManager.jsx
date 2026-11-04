@@ -81,7 +81,7 @@ export default function InviteManager() {
           Generate invite + upload license
         </button>
       </form>
-      {error && <p style={{ color: '#DC2626', fontSize: 14, padding: '10px 18px 0' }}>{error}</p>}
+      {error && <p style={{ color: 'var(--critical)', fontSize: 14, padding: '10px 18px 0' }}>{error}</p>}
       {newCode && <p className="dv-invite-code-banner">New invite code: {newCode}</p>}
 
       <DataTable columns={columns} rows={invites} rowKey={(i) => i.code} emptyText="No invites yet." />

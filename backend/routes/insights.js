@@ -4,7 +4,7 @@ const Load = require('../models/Load');
 const Route = require('../models/Route');
 const DemandForecast = require('../models/DemandForecast');
 const { requireAuth } = require('../middleware/auth');
-const { isKnownCity, cityDistanceKm } = require('../utils/distance');
+const { isKnownCity, distanceKm } = require('../utils/distance');
 const { getDemandForecast, getEmptyRunRiskBatch, pingMlService } = require('../services/mlClient');
 const { scopeOwnerId } = require('./trucks');
 
@@ -47,17 +47,22 @@ router.get('/demand-forecast', async (req, res) => {
     }
 
     const now = Date.now();
+    // Demand forecasting stays scoped to the known-city vocabulary (its ML
+    // model and DemandForecast history are keyed by these city names), so
+    // origin/destination here are still plain city names, not {label,lat,
+    // lng} points -- match them against the new location sub-document's
+    // `.label` field (e.g. "Chennai") instead of the old plain string field.
     const originRe = new RegExp(`^${origin.trim()}$`, 'i');
     const destinationRe = new RegExp(`^${destination.trim()}$`, 'i');
     const [recentLoadCount14d, recentLoadCount30d] = await Promise.all([
       Load.countDocuments({
-        pickupLocation: originRe,
-        deliveryLocation: destinationRe,
+        'pickupLocation.label': originRe,
+        'deliveryLocation.label': destinationRe,
         createdAt: { $gte: new Date(now - RECENT_WINDOW_14D_MS) },
       }),
       Load.countDocuments({
-        pickupLocation: originRe,
-        deliveryLocation: destinationRe,
+        'pickupLocation.label': originRe,
+        'deliveryLocation.label': destinationRe,
         createdAt: { $gte: new Date(now - RECENT_WINDOW_30D_MS) },
       }),
     ]);
@@ -121,8 +126,8 @@ router.get('/empty-run-risk', async (req, res) => {
       const compatibleLoadsNearbyCount = openLoads.filter((load) => {
         if (load.cargoWeightTonnes > vehicle.maxCapacityTonnes) return false;
         if (load.requiredVehicleType !== 'any' && load.requiredVehicleType !== vehicle.vehicleType) return false;
-        const distanceKm = cityDistanceKm(route.destination, load.pickupLocation);
-        return distanceKm != null && distanceKm <= NEARBY_RADIUS_KM;
+        const distKm = distanceKm(route.destination, load.pickupLocation);
+        return distKm != null && distKm <= NEARBY_RADIUS_KM;
       }).length;
 
       return {

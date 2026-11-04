@@ -106,9 +106,24 @@
 .dv-pulse-tile {
   background: var(--surface);
   border: 1px solid var(--line);
+  border-left: 3px solid transparent;
   border-radius: var(--radius-md);
-  padding: 13px 15px;
+  padding: 13px 15px 13px 13px;
   box-shadow: var(--shadow-card);
+}
+
+/* Round 3: a thin colour-coded left edge per tile's tone, so the pulse
+   row reads at a glance instead of every tile looking identical. */
+.dv-pulse-tile.tone-ok {
+  border-left-color: var(--good);
+}
+
+.dv-pulse-tile.tone-warn {
+  border-left-color: var(--accent);
+}
+
+.dv-pulse-tile.tone-info {
+  border-left-color: var(--info);
 }
 
 .dv-pulse-label {
@@ -141,7 +156,7 @@
 }
 
 .dv-pulse-delta.ok {
-  color: var(--secondary);
+  color: var(--good);
 }
 
 .dv-pulse-delta.warn {
@@ -201,13 +216,13 @@
 }
 
 .dv-status-chip.tone-open {
-  background: var(--surface-2);
-  color: var(--ink-muted);
+  background: var(--violet-soft);
+  color: var(--violet);
 }
 
 .dv-status-chip.tone-active {
-  background: var(--secondary-soft);
-  color: var(--secondary);
+  background: var(--info-soft);
+  color: var(--info);
 }
 
 .dv-status-chip.tone-pending {
@@ -216,19 +231,18 @@
 }
 
 .dv-status-chip.tone-primary {
-  background: var(--primary-soft);
-  color: var(--primary);
+  background: var(--teal-soft);
+  color: var(--teal);
 }
 
 .dv-status-chip.tone-done {
-  background: var(--surface-2);
-  color: var(--ink-faint);
+  background: var(--good-soft);
+  color: var(--good);
 }
 
 .dv-status-chip.tone-rejected {
-  background: var(--surface-2);
-  color: var(--ink-faint);
-  text-decoration: line-through;
+  background: var(--critical-soft);
+  color: var(--critical);
 }
 
 /* ---------- Request pipeline (stacked distribution bar) ---------- */
@@ -458,11 +472,11 @@
 }
 
 .dv-req-row-history.tone-done {
-  border-left-color: var(--secondary);
+  border-left-color: var(--good);
 }
 
 .dv-req-row-history.tone-rejected {
-  border-left-color: var(--ink-faint);
+  border-left-color: var(--critical);
 }
 
 .dv-req-meta {
@@ -560,6 +574,108 @@
 .dv-req-wrapup-received {
   font-size: 12.5px;
   color: var(--ink-muted);
+}
+
+/* Payment column states: a clean paid receipt (both sides), the poster's
+   "amount due + Pay now" card, and the vehicle side's read-only pending
+   state -- see CompletedActions.jsx's own header comment on why only the
+   poster ever gets a Pay action here. */
+/* Round 3 colour pass: the three payment states (paid / due / pending)
+   each get their own semantic colour instead of all sharing the same
+   grey -- paid is good-green, due-to-pay leans on the same blue the UPI
+   modal itself uses (visual continuity into that flow), and awaiting
+   payment reuses the app's existing "needs attention" gold, the same
+   token the pending-approval chip already uses elsewhere. */
+.dv-pay-receipt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--good-soft);
+  border: 1px solid transparent;
+  border-left: 3px solid var(--good);
+  border-radius: var(--radius-md);
+  padding: 9px 12px;
+}
+
+.dv-pay-receipt-icon {
+  color: var(--good);
+  flex-shrink: 0;
+  display: flex;
+}
+
+.dv-pay-receipt-amount {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-pay-receipt-meta {
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+
+.dv-pay-due {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dv-pay-due-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13.5px;
+  color: var(--ink-muted);
+}
+
+.dv-pay-due-row strong {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-pay-icon-accent {
+  display: flex;
+  color: var(--upi-blue, var(--info));
+}
+
+.dv-pay-now-btn {
+  background: var(--upi-blue, var(--info)) !important;
+  border-color: var(--upi-blue, var(--info)) !important;
+  color: #fff !important;
+  transition: filter 0.15s ease;
+}
+
+.dv-pay-now-btn:hover {
+  filter: brightness(1.08);
+}
+
+.dv-pay-other-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  color: var(--ink-muted);
+  text-decoration: underline;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.dv-pay-other-link:hover {
+  color: var(--primary);
+}
+
+.dv-pay-pending {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13.5px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid transparent;
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+  padding: 9px 12px;
 }
 
 @media (max-width: 560px) {

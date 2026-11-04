@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { listRequests, STATUS_LABELS } from '../lib/requestApi.js';
 import CompletedActions from './CompletedActions.jsx';
 import './dataViews.css';
+import { locationLabel } from '../lib/locationLabel.js';
 
 // Dedicated "Payments" dashboard, split out of RequestsPanel so recording
 // a payment (and leaving a rating) for a finished booking has its own
@@ -35,7 +36,7 @@ export default function PaymentsPanel({ user }) {
       <p className="dv-hint" style={{ padding: '0 18px 10px' }}>
         {t('dashboard.payments.help', 'A trip shows up here the moment it is marked completed -- payment and rating only unlock once the trip is actually over.')}
       </p>
-      {error && <p style={{ color: '#DC2626', fontSize: 14, padding: '0 18px 10px' }}>{error}</p>}
+      {error && <p style={{ color: 'var(--critical)', fontSize: 14, padding: '0 18px 10px' }}>{error}</p>}
       {requests.length === 0 ? (
         <div className="dv-empty">{t('dashboard.payments.noneYet', 'No completed trips to settle yet.')}</div>
       ) : (
@@ -47,9 +48,9 @@ export default function PaymentsPanel({ user }) {
               <div className="dv-req-top">
                 <div>
                   <div className="dv-req-route">
-                    {trip ? `${trip.source} → ${trip.destination}` : 'Trip removed'}
+                    {trip ? `${locationLabel(trip.source)} → ${locationLabel(trip.destination)}` : 'Trip removed'}
                     <span className="sep"> carrying </span>
-                    {load ? `${load.pickupLocation} → ${load.deliveryLocation}` : 'Load removed'}
+                    {load ? `${locationLabel(load.pickupLocation)} → ${locationLabel(load.deliveryLocation)}` : 'Load removed'}
                   </div>
                   <div className="dv-req-sub">
                     {load ? `${load.cargoType}, ${load.cargoWeightTonnes}t` : ''}

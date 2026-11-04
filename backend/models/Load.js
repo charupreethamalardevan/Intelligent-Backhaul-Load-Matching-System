@@ -1,12 +1,16 @@
 const mongoose = require('mongoose');
 const { VEHICLE_TYPES } = require('./Truck');
+const locationSchema = require('./locationSchema');
 
 // A Load is a shipper's transportation requirement (SRS Section 11).
+// pickupLocation/deliveryLocation are now real {label, lat, lng} points
+// (locationSchema.js) instead of a plain known-city-id string -- see
+// Route.js's identical change for why.
 const loadSchema = new mongoose.Schema(
   {
     postedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    pickupLocation: { type: String, required: true, trim: true },
-    deliveryLocation: { type: String, required: true, trim: true },
+    pickupLocation: { type: locationSchema, required: true },
+    deliveryLocation: { type: locationSchema, required: true },
     cargoType: { type: String, required: true, trim: true },
     cargoWeightTonnes: { type: Number, required: true, min: 0.1 },
     // 'any' means no hard vehicle-type constraint; otherwise the matching

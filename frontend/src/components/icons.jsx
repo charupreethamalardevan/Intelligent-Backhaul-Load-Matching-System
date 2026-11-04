@@ -43,6 +43,12 @@ import {
   History,
   Wallet,
   Zap,
+  Lock,
+  ShieldCheck,
+  Smartphone,
+  CreditCard,
+  Landmark,
+  Copy,
 } from 'lucide-react';
 
 // Thin strokes, rounded caps -- matches the "subtle, not oversized" icon
@@ -91,3 +97,9 @@ export const IconNavigation = ({ size = 18, className }) => <Navigation size={si
 export const IconHistory = ({ size = 18, className }) => <History size={size} className={className} {...DEFAULTS} />;
 export const IconWallet = ({ size = 18, className }) => <Wallet size={size} className={className} {...DEFAULTS} />;
 export const IconZap = ({ size = 18, className }) => <Zap size={size} className={className} {...DEFAULTS} />;
+export const IconLock = ({ size = 18, className }) => <Lock size={size} className={className} {...DEFAULTS} />;
+export const IconShieldCheck = ({ size = 18, className }) => <ShieldCheck size={size} className={className} {...DEFAULTS} />;
+export const IconSmartphone = ({ size = 18, className }) => <Smartphone size={size} className={className} {...DEFAULTS} />;
+export const IconCreditCard = ({ size = 18, className }) => <CreditCard size={size} className={className} {...DEFAULTS} />;
+export const IconLandmark = ({ size = 18, className }) => <Landmark size={size} className={className} {...DEFAULTS} />;
+export const IconCopy = ({ size = 18, className }) => <Copy size={size} className={className} {...DEFAULTS} />;

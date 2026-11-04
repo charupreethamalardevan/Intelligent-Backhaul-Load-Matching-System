@@ -1,12 +1,23 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { listRequests, updateRequestStatus, STATUS_LABELS, NEXT_ACTIONS } from '../lib/requestApi.js';
-import { timeAgo } from '../lib/time.js';
+import { timeAgo, bucketByDay } from '../lib/time.js';
 import TripMapModal from './TripMapModal.jsx';
 import SimulateModal from './SimulateModal.jsx';
 import { ACTIVE_STATUSES } from './TripMap.jsx';
 import { IconZap, IconCheckCircle, IconX, IconMapPin } from './icons.jsx';
+import { MiniLineChart, MiniBarChart } from './MiniCharts.jsx';
 import './dataViews.css';
+import { locationLabel } from '../lib/locationLabel.js';
+
+// History-only status-breakdown colors -- History only ever contains the
+// 3 terminal statuses, so this is a smaller, dedicated palette rather
+// than reusing FleetDashboard.jsx's REQUEST_STATUS_BUCKETS (which also
+// covers pendingApproval/active and isn't exported from that module).
+// Round 3: reads the shared status tokens (index.css) -- completed is
+// good-green, rejected is critical-red; cancelled gets violet rather than
+// a near-duplicate amber, since gold is already reserved for "pending".
+const HISTORY_STATUS_COLORS = { completed: 'var(--good)', rejected: 'var(--critical)', cancelled: 'var(--violet)' };
 
 const ACTION_LABELS = {
   requested: 'Approve',
@@ -137,6 +148,30 @@ export default function RequestsPanel({ user, mode = 'current', focusId = null, 
 
   const visibleRequests = requests.filter((r) => (mode === 'history' ? TERMINAL_STATUSES.includes(r.status) : !TERMINAL_STATUSES.includes(r.status)));
 
+  // History is presented as graphs first (per the user's own request: "for
+  // history, use graphs for a presentation, not use tables") -- a 14-day
+  // trend of finished bookings, and a breakdown of how they finished. Both
+  // are plain derived views over the same `visibleRequests` the row list
+  // below already renders, so there's nothing new to fetch and nothing
+  // that can drift out of sync with the rows underneath the charts.
+  const historyTrend = useMemo(
+    () => (mode === 'history' ? bucketByDay(visibleRequests, (r) => r.updatedAt || r.createdAt, 14) : []),
+    [mode, visibleRequests],
+  );
+  const historyStatusChart = useMemo(() => {
+    if (mode !== 'history') return [];
+    const counts = { completed: 0, rejected: 0, cancelled: 0 };
+    for (const r of visibleRequests) {
+      if (counts[r.status] != null) counts[r.status] += 1;
+    }
+    return Object.entries(counts).map(([key, value]) => ({
+      label: t(`status.${key}`, STATUS_LABELS[key] || key),
+      value,
+      color: HISTORY_STATUS_COLORS[key],
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, visibleRequests]);
+
   async function act(id, status) {
     setError(null);
     setBusyId(id);
@@ -159,7 +194,23 @@ export default function RequestsPanel({ user, mode = 'current', focusId = null, 
             : `${t('dashboard.section.currentTrip.title', 'Current Trip')} · ${visibleRequests.length}`}
         </h2>
       </div>
-      {error && <p style={{ color: '#DC2626', fontSize: 14, padding: '0 18px 10px' }}>{error}</p>}
+      {error && <p style={{ color: 'var(--critical)', fontSize: 14, padding: '0 18px 10px' }}>{error}</p>}
+      {mode === 'history' && visibleRequests.length > 0 && (
+        <div className="wg-row-2" style={{ padding: '0 18px 14px' }}>
+          <div className="card">
+            <div className="wg-panel-header">
+              <h3>{t('dashboard.history.trendTitle', 'Finished bookings, last 14 days')}</h3>
+            </div>
+            <MiniLineChart data={historyTrend} emptyText={t('dashboard.history.trendEmpty', 'Not enough history yet.')} />
+          </div>
+          <div className="card">
+            <div className="wg-panel-header">
+              <h3>{t('dashboard.history.breakdownTitle', 'How bookings finished')}</h3>
+            </div>
+            <MiniBarChart data={historyStatusChart} emptyText={t('dashboard.history.breakdownEmpty', 'No finished bookings yet.')} />
+          </div>
+        </div>
+      )}
       {visibleRequests.length === 0 ? (
         <div className="dv-empty">
           {mode === 'history'
@@ -216,9 +267,9 @@ export default function RequestsPanel({ user, mode = 'current', focusId = null, 
               <div className="dv-req-top">
                 <div>
                   <div className="dv-req-route">
-                    {trip ? `${trip.source} → ${trip.destination}` : 'Trip removed'}
+                    {trip ? `${locationLabel(trip.source)} → ${locationLabel(trip.destination)}` : 'Trip removed'}
                     <span className="sep"> carrying </span>
-                    {load ? `${load.pickupLocation} → ${load.deliveryLocation}` : 'Load removed'}
+                    {load ? `${locationLabel(load.pickupLocation)} → ${locationLabel(load.deliveryLocation)}` : 'Load removed'}
                   </div>
                   <div className="dv-req-sub">
                     Match score {r.matchScore} · {load ? `${load.cargoType}, ${load.cargoWeightTonnes}t` : ''}

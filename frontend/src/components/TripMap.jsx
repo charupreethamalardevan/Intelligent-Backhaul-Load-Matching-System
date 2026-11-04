@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet
 import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { getLocationCoords } from '../lib/locationApi.js';
+import { resolvePoint } from '../lib/resolvePoint.js';
 import { getRequest, updateRequestLocation } from '../lib/requestApi.js';
 import { getRoutePath, positionAtFraction } from '../lib/routeGeometry.js';
 import './TripMap.css';
@@ -108,11 +108,9 @@ export default function TripMap({ request, canShareLocation, height = 260, scrol
   useEffect(() => {
     let cancelled = false;
     if (!trip) return undefined;
-    getLocationCoords()
-      .then((map) => {
+    Promise.all([resolvePoint(trip.source), resolvePoint(trip.destination)])
+      .then(([s, d]) => {
         if (cancelled) return;
-        const s = map[String(trip.source || '').toLowerCase()];
-        const d = map[String(trip.destination || '').toLowerCase()];
         if (s && d) setCoords({ source: s, destination: d });
       })
       .catch(() => {});
@@ -326,7 +324,7 @@ export default function TripMap({ request, canShareLocation, height = 260, scrol
           </button>
         )}
       </div>
-      {shareError && <p style={{ color: '#DC2626', fontSize: 11.5, marginTop: 4 }}>{shareError}</p>}
+      {shareError && <p style={{ color: 'var(--critical)', fontSize: 11.5, marginTop: 4 }}>{shareError}</p>}
     </div>
   );
 }

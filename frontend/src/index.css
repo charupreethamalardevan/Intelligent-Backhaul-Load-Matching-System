@@ -44,6 +44,26 @@
   --accent: #AB7B1E;
   --accent-soft: #F7EEDA;
 
+  /* ---- round 3: colourful status/chart accents, added on top of the
+     round-2 black/white/gold system per direct user feedback ("use
+     colours... make the graph look good") for Payment, History and
+     Overview specifically. These are deliberately separate from
+     --primary/--accent (which keep their existing "ink" and "needs
+     attention" meanings everywhere they're already used) -- a small,
+     fixed, reserved set: good (paid/completed), critical (rejected),
+     info (active/actionable), violet + teal (chart variety / cancelled).
+     Every consumer reads these as tokens, so light/dark stays automatic. */
+  --good: #16A34A;
+  --good-soft: color-mix(in srgb, #16A34A 14%, transparent);
+  --critical: #DC2626;
+  --critical-soft: color-mix(in srgb, #DC2626 14%, transparent);
+  --info: #2563EB;
+  --info-soft: color-mix(in srgb, #2563EB 14%, transparent);
+  --violet: #7C3AED;
+  --violet-soft: color-mix(in srgb, #7C3AED 14%, transparent);
+  --teal: #0D9488;
+  --teal-soft: color-mix(in srgb, #0D9488 14%, transparent);
+
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -79,6 +99,20 @@
 
   --accent: #D7AC52;
   --accent-soft: rgba(215, 172, 82, 0.16);
+
+  /* round 3 colour accents -- brighter steps of the same hues, for
+     legibility on the dark surface (see the light-mode block above for
+     why these exist). */
+  --good: #22C55E;
+  --good-soft: color-mix(in srgb, #22C55E 18%, transparent);
+  --critical: #F87171;
+  --critical-soft: color-mix(in srgb, #F87171 16%, transparent);
+  --info: #60A5FA;
+  --info-soft: color-mix(in srgb, #60A5FA 16%, transparent);
+  --violet: #A78BFA;
+  --violet-soft: color-mix(in srgb, #A78BFA 16%, transparent);
+  --teal: #2DD4BF;
+  --teal-soft: color-mix(in srgb, #2DD4BF 16%, transparent);
 
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(0, 0, 0, 0.24);
   --shadow-elevated: 0 20px 48px rgba(0, 0, 0, 0.5);

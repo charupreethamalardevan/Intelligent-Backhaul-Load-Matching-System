@@ -50,6 +50,15 @@ router.post('/', requireOwnerRole, async (req, res) => {
     if (!vehicleId || !source || !destination || !availableFrom) {
       return res.status(400).json({ error: 'vehicleId, source, destination and availableFrom are required.' });
     }
+    // source/destination are now {label, lat, lng} points (an address
+    // search result, a map click, or live GPS), not a plain known-city
+    // string -- reject anything that didn't resolve to real coordinates
+    // before it reaches the matching engine (SRS 9's map module needs a
+    // real point to plot, and distanceKm() needs one to score against).
+    const hasCoords = (loc) => loc && typeof loc.lat === 'number' && typeof loc.lng === 'number' && loc.label;
+    if (!hasCoords(source) || !hasCoords(destination)) {
+      return res.status(400).json({ error: 'source and destination must be a selected address, map point or current location, not free text.' });
+    }
     const truck = await Truck.findById(vehicleId);
     if (!truck) return res.status(404).json({ error: 'Vehicle not found.' });
     if (String(truck.truckOwnerId) !== String(req.user.sub)) {

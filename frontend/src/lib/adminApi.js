@@ -17,6 +17,15 @@ export async function adminFetch(path, options = {}) {
 
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  if (!res.ok) {
+    // `status` is attached (not just encoded in the message) so callers can
+    // reliably detect "the admin session itself is the problem" (401) and
+    // react to it -- e.g. by bouncing back to the login screen -- without
+    // string-matching the error text, which could drift from the backend's
+    // own wording.
+    const err = new Error(data.error || `Request failed (${res.status})`);
+    err.status = res.status;
+    throw err;
+  }
   return data;
 }

@@ -4,9 +4,10 @@ import { listVehicles, createVehicle, updateVehicle, deleteVehicle, listFleetDri
 import { listTrips, createTrip, deleteTrip } from '../lib/tripApi.js';
 import { matchesForTrip } from '../lib/matchingApi.js';
 import { createRequest, listRequests, updateRequestStatus, STATUS_LABELS } from '../lib/requestApi.js';
-import { loadsNear } from '../lib/loadApi.js';
+import { discoverLoads } from '../lib/loadApi.js';
 import { demandForecast, emptyRunRisk, warmMl } from '../lib/insightsApi.js';
-import { timeAgo } from '../lib/time.js';
+import { timeAgo, bucketByDay } from '../lib/time.js';
+import { MiniLineChart } from '../components/MiniCharts.jsx';
 import MatchResults from '../components/MatchResults.jsx';
 import ChainComparison from '../components/ChainComparison.jsx';
 import RequestsPanel from '../components/RequestsPanel.jsx';
@@ -15,7 +16,9 @@ import InviteManager from '../components/InviteManager.jsx';
 import DashboardShell from '../components/DashboardShell.jsx';
 import ActivityList from '../components/ActivityList.jsx';
 import LocationSelect from '../components/LocationSelect.jsx';
+import AddressInput from '../components/AddressInput.jsx';
 import RoutePreviewMap from '../components/RoutePreviewMap.jsx';
+import { locationLabel } from '../lib/locationLabel.js';
 import DataTable from '../components/DataTable.jsx';
 import SidePanel from '../components/SidePanel.jsx';
 import AttentionPanel from '../components/AttentionPanel.jsx';
@@ -264,7 +267,7 @@ function VehiclesTab({ canManage, isFleetOwner, vehicles, drivers, trips, reload
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {isFleetOwner && assignError && <p style={{ color: '#DC2626', fontSize: 14 }}>{assignError}</p>}
+      {isFleetOwner && assignError && <p style={{ color: 'var(--critical)', fontSize: 14 }}>{assignError}</p>}
 
       <div className="dv-panel">
         <div className="dv-panel-head">
@@ -382,7 +385,7 @@ function VehiclesTab({ canManage, isFleetOwner, vehicles, drivers, trips, reload
               </label>
               <input id="veh-driver-phone" className="input" placeholder={t('forms.vehicle.driverPhonePlaceholder')} value={form.driverPhone} onChange={(e) => setForm({ ...form, driverPhone: e.target.value })} />
             </div>
-            {error && <p style={{ color: '#DC2626', fontSize: 14 }}>{error}</p>}
+            {error && <p style={{ color: 'var(--critical)', fontSize: 14 }}>{error}</p>}
             <button className="btn btn-primary" type="submit" disabled={saving}>
               {editingId
                 ? saving
@@ -401,7 +404,7 @@ function VehiclesTab({ canManage, isFleetOwner, vehicles, drivers, trips, reload
 
 function TripsTab({ canManage, vehicles, trips, requests, reload, onViewCurrentTrip, t: tProp }) {
   const { t } = useTranslation();
-  const [form, setForm] = useState({ vehicleId: '', source: '', destination: '', availableFrom: '' });
+  const [form, setForm] = useState({ vehicleId: '', source: null, destination: null, availableFrom: '' });
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -416,10 +419,17 @@ function TripsTab({ canManage, vehicles, trips, requests, reload, onViewCurrentT
   async function handleCreate(e) {
     e.preventDefault();
     setError(null);
+    // AddressInput only ever hands back a real {label, lat, lng} point or
+    // null -- catch an unresolved pick here (same message either field
+    // would otherwise just 400 on) before it even reaches the network.
+    if (!form.source || !form.destination) {
+      setError('Pick a source and a destination from the suggestions, a quick city, your location, or the map.');
+      return;
+    }
     setSaving(true);
     try {
       await createTrip(form);
-      setForm({ vehicleId: '', source: '', destination: '', availableFrom: '' });
+      setForm({ vehicleId: '', source: null, destination: null, availableFrom: '' });
       reload();
     } catch (err) {
       setError(err.message);
@@ -435,7 +445,7 @@ function TripsTab({ canManage, vehicles, trips, requests, reload, onViewCurrentT
       render: (tr) => (
         <>
           <div className="dv-cell-primary">
-            {tr.source} → {tr.destination}
+            {locationLabel(tr.source)} → {locationLabel(tr.destination)}
           </div>
           <div className="dv-cell-sub">{tr.vehicleId?.vehicleNumber || 'vehicle'}</div>
         </>
@@ -518,13 +528,13 @@ function TripsTab({ canManage, vehicles, trips, requests, reload, onViewCurrentT
               <label className="field-label" htmlFor="trip-source">
                 {t('forms.trip.source')}
               </label>
-              <LocationSelect id="trip-source" value={form.source} onChange={(v) => setForm({ ...form, source: v })} placeholder={t('forms.trip.sourcePlaceholder')} required />
+              <AddressInput id="trip-source" value={form.source} onChange={(v) => setForm({ ...form, source: v })} placeholder={t('forms.trip.sourcePlaceholder')} required allowLiveLocation />
             </div>
             <div className="field">
               <label className="field-label" htmlFor="trip-destination">
                 {t('forms.trip.destination')}
               </label>
-              <LocationSelect id="trip-destination" value={form.destination} onChange={(v) => setForm({ ...form, destination: v })} placeholder={t('forms.trip.destinationPlaceholder')} required />
+              <AddressInput id="trip-destination" value={form.destination} onChange={(v) => setForm({ ...form, destination: v })} placeholder={t('forms.trip.destinationPlaceholder')} required />
             </div>
             <div className="field">
               <label className="field-label" htmlFor="trip-available">
@@ -536,7 +546,7 @@ function TripsTab({ canManage, vehicles, trips, requests, reload, onViewCurrentT
               <RoutePreviewMap source={form.source} destination={form.destination} />
             </div>
             {error && (
-              <p style={{ color: '#DC2626', fontSize: 14, gridColumn: 'span 4', margin: 0 }}>{error}</p>
+              <p style={{ color: 'var(--critical)', fontSize: 14, gridColumn: 'span 4', margin: 0 }}>{error}</p>
             )}
             <button className="btn btn-primary" type="submit" disabled={saving} style={{ gridColumn: 'span 4' }}>
               {saving ? t('forms.trip.submitting') : t('forms.trip.submit')}
@@ -614,19 +624,19 @@ function FindLoadsTab({ trips, user }) {
             <option value="">{t('forms.findLoads.selectTrip')}</option>
             {available.map((t4) => (
               <option key={t4._id} value={t4._id}>
-                {t4.source} → {t4.destination} ({t4.vehicleId?.vehicleNumber})
+                {locationLabel(t4.source)} → {locationLabel(t4.destination)} ({t4.vehicleId?.vehicleNumber})
               </option>
             ))}
           </select>
         </div>
         {available.length === 0 && isDriver && (
-          <p style={{ fontSize: 13.5, color: '#D97706', marginTop: 8 }}>{t('forms.findLoads.noVehicleAssigned')}</p>
+          <p style={{ fontSize: 13.5, color: 'var(--accent)', marginTop: 8 }}>{t('forms.findLoads.noVehicleAssigned')}</p>
         )}
         {available.length === 0 && !isDriver && <p style={{ fontSize: 13.5, color: 'var(--muted)', marginTop: 8 }}>{t('forms.findLoads.planTripFirst')}</p>}
       </div>
 
       {loading && <p style={{ fontSize: 14, color: 'var(--muted)' }}>{t('forms.findLoads.scoring')}</p>}
-      {error && <p style={{ color: '#DC2626', fontSize: 14 }}>{error}</p>}
+      {error && <p style={{ color: 'var(--critical)', fontSize: 14 }}>{error}</p>}
       {result && (
         <>
           <MatchResults
@@ -643,27 +653,110 @@ function FindLoadsTab({ trips, user }) {
   );
 }
 
-function NearbyLoadsTab() {
+function NearbyLoadsTab({ vehicles, user, reloadTrips, reloadRequests, onViewCurrentTrip }) {
   const { t } = useTranslation();
-  const [location, setLocation] = useState('');
+  const isDriver = user.role === 'driver';
+  // Same "only the vehicle actually assigned to me" restriction
+  // FindLoadsTab already applies when picking a trip -- here it gates
+  // which vehicle a driver can discover-and-start a trip for.
+  const myVehicles = vehicles.filter(
+    (v) => v.status === 'active' && (!isDriver || String(v.assignedDriverId?._id || v.assignedDriverId) === String(user.id)),
+  );
+  const [vehicleId, setVehicleId] = useState('');
+  const [location, setLocation] = useState(null);
+  const [availableFrom, setAvailableFrom] = useState(() => new Date().toISOString().slice(0, 16));
   const [radiusKm, setRadiusKm] = useState(150);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [startingId, setStartingId] = useState(null);
+  const [startingBackhaulId, setStartingBackhaulId] = useState(null);
 
   async function search(e) {
     e.preventDefault();
     setError(null);
     setResult(null);
-    if (!location) return;
+    if (!vehicleId || !location) return;
     setLoading(true);
     try {
-      const data = await loadsNear(location, radiusKm);
+      const data = await discoverLoads({
+        vehicleId,
+        lat: location.lat,
+        lng: location.lng,
+        label: location.label,
+        availableFrom: new Date(availableFrom).toISOString(),
+        radiusKm,
+      });
       setResult(data);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  // The entry point for a driver/owner with NO planned route yet: picking
+  // a load here creates a real trip whose source/destination is that
+  // load's own pickup->delivery (zero detour, since the trip now simply
+  // follows the load), books it exactly the way accepting a match
+  // elsewhere would, then jumps straight to Current Trip -- from there
+  // "Chain comparison" can still suggest a second compatible load on the
+  // same route, same as it already does from Find Loads.
+  async function startTripWithLoad(load) {
+    setError(null);
+    setStartingId(load._id);
+    try {
+      const trip = await createTrip({
+        vehicleId,
+        source: load.pickupLocation,
+        destination: load.deliveryLocation,
+        availableFrom: new Date(availableFrom).toISOString(),
+      });
+      const request = await createRequest(trip._id, load._id);
+      reloadTrips();
+      reloadRequests();
+      onViewCurrentTrip(request._id);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setStartingId(null);
+    }
+  }
+
+  // Books the forward load exactly as startTripWithLoad does, then does
+  // the same createTrip+createRequest pair a SECOND time for the
+  // suggested backhaul -- a second real trip, source = where the first
+  // load drops it, destination = the backhaul load's own delivery point
+  // (the same synthetic leg backend/services/chainFinder.js already
+  // scored this against). Two ordinary bookings, not a new "chained
+  // trip" concept on the backend -- Current Trip will simply show both.
+  async function startTripWithBackhaul(load, backhaul) {
+    setError(null);
+    setStartingBackhaulId(load._id);
+    try {
+      const trip1 = await createTrip({
+        vehicleId,
+        source: load.pickupLocation,
+        destination: load.deliveryLocation,
+        availableFrom: new Date(availableFrom).toISOString(),
+      });
+      const request1 = await createRequest(trip1._id, load._id);
+
+      const trip2 = await createTrip({
+        vehicleId,
+        source: load.deliveryLocation,
+        destination: backhaul.load.deliveryLocation,
+        availableFrom: load.deliveryDeadline,
+      });
+      await createRequest(trip2._id, backhaul.load._id);
+
+      reloadTrips();
+      reloadRequests();
+      onViewCurrentTrip(request1._id);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setStartingBackhaulId(null);
     }
   }
 
@@ -673,20 +766,42 @@ function NearbyLoadsTab() {
         <div className="dv-panel-head">
           <h2>{t('forms.nearbyLoads.heading')}</h2>
         </div>
+        <p className="form-help" style={{ padding: '0 18px' }}>
+          {t(
+            'forms.nearbyLoads.discoverHelp',
+            "No trip planned yet? Share where you are and pick a vehicle -- we'll show open loads nearby it can actually carry. Starting one becomes your trip.",
+          )}
+        </p>
         <form onSubmit={search} style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-end', padding: '14px 18px' }}>
-          <div className="field" style={{ flex: 1, minWidth: 160 }}>
-            <label className="field-label" htmlFor="nearby-location">{t('forms.nearbyLoads.nearCity')}</label>
-            <LocationSelect id="nearby-location" value={location} onChange={setLocation} placeholder={t('forms.nearbyLoads.selectCity')} required />
+          <div className="field" style={{ minWidth: 190 }}>
+            <label className="field-label" htmlFor="nearby-vehicle">{t('forms.trip.vehicle')}</label>
+            <select id="nearby-vehicle" className="input" required value={vehicleId} onChange={(e) => setVehicleId(e.target.value)}>
+              <option value="">{t('forms.trip.selectVehicle')}</option>
+              {myVehicles.map((v) => (
+                <option key={v._id} value={v._id}>
+                  {v.vehicleNumber} ({v.maxCapacityTonnes}t)
+                </option>
+              ))}
+            </select>
+            {myVehicles.length === 0 && <span className="field-hint">{t('forms.findLoads.noVehicleAssigned')}</span>}
           </div>
-          <div className="field" style={{ width: 150 }}>
+          <div className="field" style={{ flex: 1, minWidth: 220 }}>
+            <label className="field-label" htmlFor="nearby-location">{t('forms.nearbyLoads.nearCity')}</label>
+            <AddressInput id="nearby-location" value={location} onChange={setLocation} placeholder={t('forms.nearbyLoads.selectCity')} required allowLiveLocation />
+          </div>
+          <div className="field" style={{ width: 195 }}>
+            <label className="field-label" htmlFor="nearby-available">{t('forms.trip.availableFrom')}</label>
+            <input id="nearby-available" className="input" type="datetime-local" required value={availableFrom} onChange={(e) => setAvailableFrom(e.target.value)} />
+          </div>
+          <div className="field" style={{ width: 130 }}>
             <label className="field-label" htmlFor="nearby-radius">{t('forms.nearbyLoads.radius')}</label>
             <input id="nearby-radius" className="input" type="number" min="10" step="10" value={radiusKm} onChange={(e) => setRadiusKm(e.target.value)} />
           </div>
-          <button className="btn btn-primary" type="submit" disabled={loading}>
+          <button className="btn btn-primary" type="submit" disabled={loading || !vehicleId}>
             {loading ? t('forms.nearbyLoads.searching') : t('forms.nearbyLoads.search')}
           </button>
         </form>
-        {error && <p style={{ color: '#DC2626', fontSize: 14, padding: '0 18px 14px' }}>{error}</p>}
+        {error && <p style={{ color: 'var(--critical)', fontSize: 14, padding: '0 18px 14px' }}>{error}</p>}
       </div>
 
       {result && (
@@ -694,29 +809,81 @@ function NearbyLoadsTab() {
           <div className="dv-panel-head">
             <h2>{t('forms.nearbyLoads.resultsSummary', { count: result.loads.length, radius: result.radiusKm, place: result.location })}</h2>
           </div>
-          <DataTable
-            columns={[
-              {
-                key: 'route',
-                header: t('forms.nearbyLoads.heading'),
-                render: ({ load }) => (
-                  <>
+          {result.loads.length === 0 && (
+            <p style={{ fontSize: 13.5, color: 'var(--muted)', padding: '0 18px 14px' }}>{t('forms.nearbyLoads.noneFound')}</p>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '0 18px 18px' }}>
+            {result.loads.map(({ load, distanceToPickupKm, profitability, suggestedBackhaul }) => (
+              <div key={load._id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: 220 }}>
                     <div className="dv-cell-primary">
-                      {load.pickupLocation} → {load.deliveryLocation}
+                      {locationLabel(load.pickupLocation)} → {locationLabel(load.deliveryLocation)}
                     </div>
                     <div className="dv-cell-sub">
-                      {load.cargoType} · {load.cargoWeightTonnes}t
+                      {load.cargoType} · {load.cargoWeightTonnes}t · ₹{load.expectedPrice} · {distanceToPickupKm} km {t('forms.nearbyLoads.toPickup', 'to pickup')}
                     </div>
-                  </>
-                ),
-              },
-              { key: 'price', header: '₹', render: ({ load }) => `₹${load.expectedPrice}` },
-              { key: 'distance', header: 'km', align: 'right', render: ({ distanceKm }) => `${distanceKm} km` },
-            ]}
-            rows={result.loads}
-            rowKey={({ load }) => load._id}
-            emptyText={t('forms.nearbyLoads.noneFound')}
-          />
+                    {profitability && !profitability.error && (
+                      <div className="dv-cell-sub">
+                        {t('forms.nearbyLoads.estProfit', 'Est. profit')}: ₹{profitability.estimatedProfit}
+                        {' · '}
+                        {profitability.distanceKm.detourKm} km {t('forms.nearbyLoads.extraToReach', 'extra to reach it')}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ fontSize: 13, flexShrink: 0 }}
+                    disabled={startingId === load._id || startingBackhaulId === load._id}
+                    onClick={() => startTripWithLoad(load)}
+                  >
+                    {startingId === load._id ? t('forms.nearbyLoads.starting', 'Starting...') : t('forms.nearbyLoads.startTrip', 'Start this trip')}
+                  </button>
+                </div>
+
+                {suggestedBackhaul ? (
+                  <div
+                    style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap',
+                      borderTop: '1px solid var(--line)', paddingTop: 10,
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 220 }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                        {t('forms.nearbyLoads.backhaulLabel', 'Suggested backhaul')}
+                      </div>
+                      <div className="dv-cell-sub" style={{ marginTop: 2 }}>
+                        {locationLabel(suggestedBackhaul.load.pickupLocation)} → {locationLabel(suggestedBackhaul.load.deliveryLocation)}
+                        {' · '}
+                        {suggestedBackhaul.load.cargoType} · {suggestedBackhaul.load.cargoWeightTonnes}t · ₹{suggestedBackhaul.load.expectedPrice}
+                      </div>
+                      {suggestedBackhaul.profitability && !suggestedBackhaul.profitability.error && profitability && !profitability.error && (
+                        <div className="dv-cell-sub" style={{ color: 'var(--primary)', fontWeight: 700 }}>
+                          {t('forms.nearbyLoads.combinedProfit', 'Combined est. profit')}: ₹{profitability.estimatedProfit + suggestedBackhaul.profitability.estimatedProfit}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      style={{ fontSize: 13, flexShrink: 0 }}
+                      disabled={startingId === load._id || startingBackhaulId === load._id}
+                      onClick={() => startTripWithBackhaul(load, suggestedBackhaul)}
+                    >
+                      {startingBackhaulId === load._id
+                        ? t('forms.nearbyLoads.starting', 'Starting...')
+                        : t('forms.nearbyLoads.startWithBackhaul', 'Start with backhaul')}
+                    </button>
+                  </div>
+                ) : (
+                  <p style={{ fontSize: 12.5, color: 'var(--muted)', borderTop: '1px solid var(--line)', paddingTop: 10, margin: 0 }}>
+                    {t('forms.nearbyLoads.noBackhaulFound', 'No suitable backhaul load found for this one yet.')}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -729,7 +896,12 @@ function NearbyLoadsTab() {
 // so they get literal colors, the same way MatchResults.jsx's MlBadge /
 // MlProfitabilityBadge chips do. Local to this file since neither module
 // has a vehicle-load pairing to slot into MatchResults' own cards.
-const DEMAND_COLORS = { High: 'var(--primary)', Medium: '#D97706', Low: '#DC2626' };
+// Round-4 colour pass (Addendum 65): these were a leftover black/hardcoded-hex
+// pair from before the shared --good/--accent/--critical tokens existed --
+// now reading the same reserved status tokens everything else uses, which
+// also fixes a real gap (the hardcoded #D97706/#DC2626 hexes had no dark-mode
+// step, unlike the tokens).
+const DEMAND_COLORS = { High: 'var(--good)', Medium: 'var(--accent)', Low: 'var(--critical)' };
 function DemandCategoryChip({ category }) {
   const color = DEMAND_COLORS[category] || 'var(--muted)';
   return (
@@ -745,7 +917,7 @@ function DemandCategoryChip({ category }) {
   );
 }
 
-const RISK_COLORS = { Low: 'var(--primary)', Medium: '#D97706', High: '#DC2626' };
+const RISK_COLORS = { Low: 'var(--good)', Medium: 'var(--accent)', High: 'var(--critical)' };
 function RiskChip({ pct, level }) {
   const color = RISK_COLORS[level] || 'var(--muted)';
   return (
@@ -815,7 +987,7 @@ function RouteInsightsTab() {
       render: ({ trip }) => (
         <>
           <div className="dv-cell-primary">
-            {trip.source} → {trip.destination}
+            {locationLabel(trip.source)} → {locationLabel(trip.destination)}
           </div>
           <div className="dv-cell-sub">{trip.vehicleId?.vehicleNumber || 'vehicle'} · available {new Date(trip.availableFrom).toLocaleDateString()}</div>
         </>
@@ -862,7 +1034,7 @@ function RouteInsightsTab() {
         <div style={{ padding: '0 18px 14px' }}>
           <RoutePreviewMap source={origin} destination={destination} />
         </div>
-        {demandError && <p style={{ color: '#DC2626', fontSize: 14, padding: '0 18px 14px' }}>{demandError}</p>}
+        {demandError && <p style={{ color: 'var(--critical)', fontSize: 14, padding: '0 18px 14px' }}>{demandError}</p>}
         {demand && (
           <div style={{ padding: '0 18px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
             <div>
@@ -881,14 +1053,14 @@ function RouteInsightsTab() {
         <div className="dv-panel-head">
           <h2>
             Empty-run risk · your available trips
-            {highRiskCount > 0 && <span style={{ marginLeft: 8, color: '#DC2626', fontWeight: 700, fontSize: 14 }}><IconAlert size={14} /> {highRiskCount} high risk</span>}
+            {highRiskCount > 0 && <span style={{ marginLeft: 8, color: 'var(--critical)', fontWeight: 700, fontSize: 14 }}><IconAlert size={14} /> {highRiskCount} high risk</span>}
           </h2>
         </div>
         <p className="form-help" style={{ padding: '0 18px' }} title={t('ml.syntheticNote')}>
           How likely each trip is to return empty, and how many compatible loads exist near its destination.
         </p>
         {riskLoading && <p style={{ fontSize: 14, color: 'var(--muted)', padding: '0 18px 14px' }}>Scoring your trips...</p>}
-        {riskError && <p style={{ color: '#DC2626', fontSize: 14, padding: '0 18px 14px' }}>{riskError}</p>}
+        {riskError && <p style={{ color: 'var(--critical)', fontSize: 14, padding: '0 18px 14px' }}>{riskError}</p>}
         {!riskLoading && !riskError && (
           <DataTable columns={riskColumns} rows={riskTrips || []} rowKey={({ trip }) => trip._id} emptyText="No available trips to score yet. Plan a trip first." />
         )}
@@ -1004,11 +1176,15 @@ const SECTION_META = (t) => ({
 // completed/rejectedCancelled), now rendered as a stacked bar instead of
 // an axis-labeled chart. Colors are CSS custom properties so they follow
 // the light/dark theme automatically.
+// Round 3 colour pass: these now map to the app's new status tokens
+// (index.css) instead of the monochrome ink scale, so the pipeline bar
+// and its legend (RequestPipeline.jsx) actually read as distinct states
+// at a glance -- pending stays the house "needs attention" gold.
 const REQUEST_STATUS_BUCKETS = [
   { key: 'pendingApproval', fallback: 'Pending approval', color: 'var(--accent)' },
-  { key: 'active', fallback: 'Active', color: 'var(--primary)' },
-  { key: 'completed', fallback: 'Completed', color: 'var(--secondary)' },
-  { key: 'rejectedCancelled', fallback: 'Rejected / cancelled', color: 'var(--ink-faint)' },
+  { key: 'active', fallback: 'Active', color: 'var(--info)' },
+  { key: 'completed', fallback: 'Completed', color: 'var(--good)' },
+  { key: 'rejectedCancelled', fallback: 'Rejected / cancelled', color: 'var(--critical)' },
 ];
 
 export default function FleetDashboard({ user, onLogout }) {
@@ -1057,6 +1233,18 @@ export default function FleetDashboard({ user, onLogout }) {
     reloadTrips();
     reloadDrivers();
     reloadRequests();
+
+    // Keeps Overview's tiles/charts "live" without a socket -- same 20s
+    // cadence NotificationBell.jsx already polls at. Trips/vehicles/
+    // drivers change far less often than requests do, but polling all
+    // four here is cheap (plain GETs the user already has list endpoints
+    // for) and keeps every Overview widget derived from this same state
+    // in sync with each other, not just the one that changes fastest.
+    const liveTimer = setInterval(() => {
+      reloadRequests();
+      reloadTrips();
+    }, 20000);
+    return () => clearInterval(liveTimer);
   }, []);
 
   const pendingApprovalRequests = useMemo(
@@ -1096,7 +1284,7 @@ export default function FleetDashboard({ user, onLogout }) {
           <>
             <b>{t('dashboard.fleet.driverRequest', 'A driver')}</b>{' '}
             <span className="muted">
-              {t('dashboard.fleet.requestedLoad', 'requested a load on')} {r.tripId ? `${r.tripId.source} → ${r.tripId.destination}` : t('dashboard.fleet.tripRemoved', 'a removed trip')}
+              {t('dashboard.fleet.requestedLoad', 'requested a load on')} {r.tripId ? `${locationLabel(r.tripId.source)} → ${locationLabel(r.tripId.destination)}` : t('dashboard.fleet.tripRemoved', 'a removed trip')}
               {' · '}
               {t('dashboard.fleet.waitingApproval', 'waiting on your approval before it reaches the poster')}
             </span>
@@ -1166,6 +1354,7 @@ export default function FleetDashboard({ user, onLogout }) {
       label: t('dashboard.fleet.estRevenue', 'Est. revenue, active'),
       value: totalActiveProfit > 0 ? `₹${Math.round(totalActiveProfit).toLocaleString('en-IN')}` : '₹0',
       delta: profitableActive.length > 0 ? t('dashboard.fleet.acrossBookings', 'across {{count}} bookings', { count: profitableActive.length }) : null,
+      tone: 'info',
     });
     return tiles;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1179,7 +1368,7 @@ export default function FleetDashboard({ user, onLogout }) {
         const d = tripDisplayStatus(tr, requestsByTrip(tr._id), t);
         return {
           id: tr._id,
-          route: `${tr.source} → ${tr.destination}`,
+          route: `${locationLabel(tr.source)} → ${locationLabel(tr.destination)}`,
           meta: tr.vehicleId?.vehicleNumber || '',
           statusLabel: d.label,
           tone: d.tone,
@@ -1209,6 +1398,23 @@ export default function FleetDashboard({ user, onLogout }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requests, i18n.language]);
 
+  // The "live graphs" line chart for Overview -- a 14-day trend of
+  // estimated earnings, summing profitability.estimatedProfit (already
+  // computed by the matching engine, nothing new here) per day across
+  // every booking that isn't rejected/cancelled, bucketed by when it was
+  // requested. Combined with the 20s poll above, this redraws itself as
+  // new requests/profit come in instead of only reflecting one load.
+  const earningsTrend = useMemo(
+    () =>
+      bucketByDay(
+        requests.filter((r) => r.status !== 'rejected' && r.status !== 'cancelled'),
+        (r) => r.createdAt,
+        14,
+        (r) => (r.profitability && !r.profitability.error ? r.profitability.estimatedProfit : 0),
+      ),
+    [requests],
+  );
+
   const recentActivity = useMemo(
     () =>
       [...requests]
@@ -1217,9 +1423,9 @@ export default function FleetDashboard({ user, onLogout }) {
         .map((r) => ({
           id: r._id,
           icon: r.status === 'pending_fleet_approval' ? IconClock : r.status === 'rejected' || r.status === 'cancelled' ? IconClock : IconCheckCircle,
-          accent: r.status === 'pending_fleet_approval' ? 'amber' : r.status === 'rejected' || r.status === 'cancelled' ? 'red' : 'primary',
-          title: r.tripId ? `${r.tripId.source} → ${r.tripId.destination}` : 'Trip removed',
-          subtitle: `${r.loadId ? `${r.loadId.pickupLocation} → ${r.loadId.deliveryLocation}` : 'Load removed'} · ${t(`status.${r.status}`, STATUS_LABELS[r.status] || r.status)}`,
+          accent: r.status === 'pending_fleet_approval' ? 'amber' : r.status === 'rejected' || r.status === 'cancelled' ? 'red' : r.status === 'completed' ? 'good' : 'blue',
+          title: r.tripId ? `${locationLabel(r.tripId.source)} → ${locationLabel(r.tripId.destination)}` : 'Trip removed',
+          subtitle: `${r.loadId ? `${locationLabel(r.loadId.pickupLocation)} → ${locationLabel(r.loadId.deliveryLocation)}` : 'Load removed'} · ${t(`status.${r.status}`, STATUS_LABELS[r.status] || r.status)}`,
           time: timeAgo(r.createdAt),
         })),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- t's identity
@@ -1253,6 +1459,14 @@ export default function FleetDashboard({ user, onLogout }) {
             <RequestPipeline buckets={pipelineBuckets} />
           </div>
 
+          <div className="card dv-section-gap">
+            <div className="wg-panel-header">
+              <h3>{t('dashboard.fleet.earningsTrend', 'Earnings trend, last 14 days')}</h3>
+              <span className="wg-panel-sub">{t('dashboard.fleet.liveUpdating', 'Updates automatically')}</span>
+            </div>
+            <MiniLineChart data={earningsTrend} color="var(--good)" emptyText={t('dashboard.fleet.earningsTrendEmpty', 'Not enough data yet.')} />
+          </div>
+
           <div className="dv-panel">
             <div className="dv-panel-head">
               <h2>{t('dashboard.fleet.recentActivity', 'Recent activity')}</h2>
@@ -1272,7 +1486,9 @@ export default function FleetDashboard({ user, onLogout }) {
       )}
       {section === 'drivers' && isFleetOwner && <DriversSection drivers={drivers} />}
       {section === 'find-loads' && <FindLoadsTab trips={trips} user={user} />}
-      {section === 'nearby-loads' && <NearbyLoadsTab />}
+      {section === 'nearby-loads' && (
+        <NearbyLoadsTab vehicles={vehicles} user={user} reloadTrips={reloadTrips} reloadRequests={reloadRequests} onViewCurrentTrip={viewInCurrentTrip} />
+      )}
       {section === 'current-trip' && (
         <RequestsPanel user={user} mode="current" focusId={focusRequestId} onFocusHandled={() => setFocusRequestId(null)} />
       )}

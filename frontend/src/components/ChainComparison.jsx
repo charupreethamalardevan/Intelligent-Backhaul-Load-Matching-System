@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { chainForTrip } from '../lib/chainApi.js';
+import { locationLabel } from '../lib/locationLabel.js';
 
 // A clearly-scoped comparison, not a general route planner: it shows the
 // single best direct backhaul load for this trip side-by-side with the
@@ -16,7 +17,7 @@ function LegCard({ leg, label }) {
     <div className="card" style={{ padding: 12 }}>
       <div style={{ fontWeight: 800, fontSize: 13.5, color: 'var(--muted)' }}>{label}</div>
       <div style={{ fontWeight: 800, fontSize: 15, marginTop: 2 }}>
-        {leg.load.pickupLocation} → {leg.load.deliveryLocation}
+        {locationLabel(leg.load.pickupLocation)} → {locationLabel(leg.load.deliveryLocation)}
       </div>
       <div style={{ fontSize: 13.5, color: 'var(--muted)' }}>
         {leg.load.cargoType} · {leg.load.cargoWeightTonnes}t · ₹{leg.load.expectedPrice}
@@ -64,7 +65,7 @@ export default function ChainComparison({ tripId }) {
         </button>
       </div>
 
-      {open && error && <p style={{ color: '#DC2626', fontSize: 14, marginTop: 10 }}>{error}</p>}
+      {open && error && <p style={{ color: 'var(--critical)', fontSize: 14, marginTop: 10 }}>{error}</p>}
 
       {open && !error && result && (
         <div style={{ marginTop: 14 }}>

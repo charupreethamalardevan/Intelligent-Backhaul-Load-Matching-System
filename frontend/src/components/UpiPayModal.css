@@ -1,0 +1,568 @@
+/* UpiPayModal -- its own small accent palette (a blue for the "pay"
+   action, a green for success), deliberately separate from the app's
+   forest-green --primary token so the payment moment reads visually
+   distinct, the way a real checkout page's own screen would inside any
+   host app. Structural colors (background/border/text) still come from
+   the shared --surface/--line/--text/--muted tokens so this follows
+   light/dark mode like everything else. */
+:root {
+  --upi-blue: #3b6fe0;
+  --upi-blue-soft: color-mix(in srgb, #3b6fe0 14%, transparent);
+  --upi-green: #1e8e5a;
+  --upi-green-soft: color-mix(in srgb, #1e8e5a 14%, transparent);
+}
+
+.upi-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 14, 0.55);
+  z-index: 90;
+  animation: dv-fade-in 0.15s ease;
+}
+
+.upi-sheet {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(420px, 92vw);
+  max-height: min(92vh, 700px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: var(--shadow-elevated);
+  z-index: 91;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: dv-sim-pop-in 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* A thin gradient strip along the very top of the sheet, the kind of
+   "trust chrome" real checkout pages use -- purely decorative, no text. */
+.upi-topbar {
+  height: 4px;
+  flex-shrink: 0;
+  background: linear-gradient(90deg, var(--upi-blue), var(--upi-green));
+}
+
+.upi-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.upi-head-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.upi-close {
+  background: none;
+  border: none;
+  padding: 4px;
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+}
+
+.upi-close:hover {
+  background: var(--surface-2);
+}
+
+.upi-body {
+  padding: 16px 20px 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Secure-payment strip + order id -- the first thing a real gateway's
+   checkout shows, before anything about amount or method. */
+.upi-secure-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.upi-secure-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--good);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.upi-order-id {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Method tabs: UPI is the only functional one; Card/Netbanking are shown
+   disabled, like a real gateway's "more methods coming" state, rather
+   than wired up as a second fake flow. */
+.upi-method-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.upi-method-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: default;
+}
+
+.upi-method-tab.active {
+  background: var(--upi-blue-soft);
+  border-color: var(--upi-blue);
+  color: var(--upi-blue);
+  cursor: default;
+}
+
+.upi-method-tab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.upi-payee {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border-radius: 12px;
+  margin-bottom: 2px;
+}
+
+.upi-payee-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--upi-blue-soft);
+  color: var(--upi-blue);
+  font-weight: 800;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.upi-payee-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upi-payee-route {
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upi-payee-verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--good);
+  background: var(--good-soft);
+  padding: 3px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Decorative QR panel -- a seeded, deterministic bit grid with corner
+   "finder" squares so it visually reads as a QR code at a glance. It is
+   explicitly never meant to be scanned (see the caption beneath it). */
+.upi-qr-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px;
+  background: var(--surface-2);
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+}
+
+.upi-qr-grid {
+  display: grid;
+  gap: 1.5px;
+  width: 112px;
+  height: 112px;
+  background: #fff;
+  padding: 8px;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.upi-qr-grid span {
+  background: transparent;
+  border-radius: 1px;
+}
+
+.upi-qr-grid span.on {
+  background: #111;
+}
+
+.upi-qr-caption {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+}
+
+.upi-qr-note {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--muted);
+  margin-top: 1px;
+}
+
+.upi-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0;
+}
+
+.upi-divider::before,
+.upi-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.upi-divider span {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.upi-field-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.upi-amount-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 4px 0 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.upi-amount-currency {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.upi-amount-input {
+  border: none;
+  background: none;
+  outline: none;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text);
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+
+.upi-input {
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--text);
+  outline: none;
+}
+
+.upi-input:focus {
+  border-color: var(--upi-blue);
+}
+
+.upi-error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--critical);
+}
+
+.upi-pay-btn {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: var(--upi-blue);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 13px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.upi-pay-btn:hover {
+  filter: brightness(1.08);
+}
+
+.upi-pay-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.upi-trust-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* Processing */
+.upi-processing {
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 20px;
+}
+
+.upi-spinner {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 4px solid var(--upi-blue-soft);
+  border-top-color: var(--upi-blue);
+  animation: upi-spin 0.8s linear infinite;
+}
+
+@keyframes upi-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.upi-processing-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 240px;
+}
+
+.upi-processing-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--muted);
+  transition: color 0.2s ease;
+}
+
+.upi-processing-step.active {
+  color: var(--text);
+}
+
+.upi-processing-step.done {
+  color: var(--good);
+}
+
+.upi-processing-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.upi-processing-step.active .upi-processing-dot {
+  border-color: var(--upi-blue);
+  background: var(--upi-blue-soft);
+  animation: upi-dot-pulse 0.9s ease-in-out infinite;
+}
+
+.upi-processing-step.done .upi-processing-dot {
+  border-color: var(--good);
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+@keyframes upi-dot-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 var(--upi-blue-soft);
+  }
+  50% {
+    box-shadow: 0 0 0 4px transparent;
+  }
+}
+
+/* Success */
+.upi-success {
+  align-items: center;
+  text-align: center;
+  padding-top: 8px;
+}
+
+.upi-success-check {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--upi-green-soft);
+  color: var(--upi-green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+  animation: upi-pop-in 0.3s cubic-bezier(0.22, 1.4, 0.36, 1);
+}
+
+@keyframes upi-pop-in {
+  from {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.upi-success-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.upi-success-amount {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--upi-green);
+  font-variant-numeric: tabular-nums;
+}
+
+.upi-success-to {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+/* Ticket-style receipt: a dashed top edge over the notch cut-outs, the
+   visual grammar of a printed/torn receipt. */
+.upi-receipt {
+  position: relative;
+  width: 100%;
+  background: var(--surface-2);
+  border-radius: 12px;
+  padding: 14px 14px 12px;
+  margin: 10px 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  border-top: 2px dashed var(--line);
+}
+
+.upi-receipt-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12.5px;
+  color: var(--muted);
+  gap: 10px;
+}
+
+.upi-receipt-row span:last-child {
+  color: var(--text);
+  font-weight: 600;
+  text-align: right;
+  word-break: break-all;
+}
+
+.upi-receipt-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.upi-copy-btn {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 2px;
+  display: flex;
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.upi-copy-btn:hover {
+  color: var(--upi-blue);
+  border-color: var(--upi-blue);
+}
+
+.upi-receipt-copied {
+  align-self: flex-end;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--good);
+}
+
+@media (max-width: 480px) {
+  .upi-sheet {
+    width: 100vw;
+    max-height: 100vh;
+    height: 100vh;
+    top: 0;
+    left: 0;
+    transform: none;
+    border-radius: 0;
+  }
+}

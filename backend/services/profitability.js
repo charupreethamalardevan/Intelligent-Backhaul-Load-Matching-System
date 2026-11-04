@@ -1,4 +1,4 @@
-const { cityDistanceKm } = require('../utils/distance');
+const { distanceKm } = require('../utils/distance');
 
 // Documented assumptions (SRS Section 14 requires every figure to be
 // clearly labelled as an estimate). Tune these three rates to taste.
@@ -15,10 +15,10 @@ const CO2_KG_PER_L_DIESEL = 2.68; // standard diesel combustion factor
 // documented estimate, not a measurement -- `assumptions` is returned
 // alongside the figures so the UI can disclose that.
 function estimateProfitability({ tripSource, tripDestination, pickupLocation, deliveryLocation, expectedPrice }) {
-  const toPickup = cityDistanceKm(tripSource, pickupLocation);
-  const loaded = cityDistanceKm(pickupLocation, deliveryLocation);
-  const fromDelivery = cityDistanceKm(deliveryLocation, tripDestination);
-  const direct = cityDistanceKm(tripSource, tripDestination);
+  const toPickup = distanceKm(tripSource, pickupLocation);
+  const loaded = distanceKm(pickupLocation, deliveryLocation);
+  const fromDelivery = distanceKm(deliveryLocation, tripDestination);
+  const direct = distanceKm(tripSource, tripDestination);
 
   if (toPickup == null || loaded == null || fromDelivery == null || direct == null) {
     return { error: 'Cannot estimate profitability -- one of the locations is not in the known-city list.' };

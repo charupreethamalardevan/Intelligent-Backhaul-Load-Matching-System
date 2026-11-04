@@ -4,6 +4,7 @@ import { updateRequestStatus, STATUS_LABELS } from '../lib/requestApi.js';
 import { IconCheckCircle, IconZap, IconMapPin } from './icons.jsx';
 import TripMap from './TripMap.jsx';
 import './dataViews.css';
+import { locationLabel } from '../lib/locationLabel.js';
 
 // Walks the same lifecycle backend/routes/requests.js's ALLOWED_TRANSITIONS
 // enforces, one real PATCH at a time -- see RequestsPanel.jsx's header
@@ -107,8 +108,8 @@ export default function SimulateModal({ request, onClose, onAdvance }) {
           <div>
             <h2>{t('sim.modalTitle', 'Simulate booking')}</h2>
             <p className="sim-sub">
-              {request.tripId ? `${request.tripId.source} → ${request.tripId.destination}` : 'Trip removed'}
-              {request.loadId ? ` · ${request.loadId.pickupLocation} → ${request.loadId.deliveryLocation}` : ''}
+              {request.tripId ? `${locationLabel(request.tripId.source)} → ${locationLabel(request.tripId.destination)}` : 'Trip removed'}
+              {request.loadId ? ` · ${locationLabel(request.loadId.pickupLocation)} → ${locationLabel(request.loadId.deliveryLocation)}` : ''}
             </p>
           </div>
           <button type="button" className="btn btn-outline" onClick={handleClose}>

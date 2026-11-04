@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import TripMap from './TripMap.jsx';
 import { IconX } from './icons.jsx';
 import './TripMap.css';
+import { locationLabel } from '../lib/locationLabel.js';
 
 // The "Start Navigation" popup -- a large, centered, fully zoomable/
 // pannable map (real scroll-wheel zoom, not just the +/- buttons the
@@ -26,6 +27,22 @@ export default function TripMapModal({ request, canShareLocation, onClose, autoS
   if (!request) return null;
   const trip = request.tripId;
 
+  // Builds a Google Maps directions URL for "Open in Google Maps" below.
+  // Prefers real lat/lng (locationSchema.js) for a precise pin; falls
+  // back to the place's text label for older/unmigrated string data so
+  // the link still works, just less precisely pinned.
+  function mapsPoint(loc) {
+    if (!loc) return '';
+    if (typeof loc === 'object' && typeof loc.lat === 'number' && typeof loc.lng === 'number') {
+      return `${loc.lat},${loc.lng}`;
+    }
+    return encodeURIComponent(locationLabel(loc) || '');
+  }
+  const canOpenInMaps = !!(trip && trip.source && trip.destination);
+  const googleMapsUrl = canOpenInMaps
+    ? `https://www.google.com/maps/dir/?api=1&origin=${mapsPoint(trip.source)}&destination=${mapsPoint(trip.destination)}&travelmode=driving`
+    : null;
+
   return (
     <>
       <div className="trip-nav-backdrop" onClick={onClose} />
@@ -35,13 +52,26 @@ export default function TripMapModal({ request, canShareLocation, onClose, autoS
             <h2>{title || t('map.startNavigation', 'Start Navigation')}</h2>
             {trip && (
               <p className="trip-nav-sub">
-                {trip.source} → {trip.destination}
+                {locationLabel(trip.source)} → {locationLabel(trip.destination)}
               </p>
             )}
           </div>
-          <button type="button" className="ds-icon-btn" onClick={onClose} aria-label={t('common.close', 'Close')}>
-            <IconX size={18} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {canOpenInMaps && (
+              <a
+                href={googleMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-outline"
+                style={{ fontSize: 13, textDecoration: 'none' }}
+              >
+                {t('map.openInGoogleMaps', 'Open in Google Maps')} ↗
+              </a>
+            )}
+            <button type="button" className="ds-icon-btn" onClick={onClose} aria-label={t('common.close', 'Close')}>
+              <IconX size={18} />
+            </button>
+          </div>
         </div>
         <div className="trip-nav-body">
           <TripMap request={request} canShareLocation={canShareLocation} height="100%" scrollWheelZoom autoShare={autoShare} />

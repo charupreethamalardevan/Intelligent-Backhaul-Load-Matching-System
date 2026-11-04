@@ -121,7 +121,8 @@
     "destination": "Destination",
     "offlineNotice": "You’re offline — showing the last map tiles seen for this area.",
     "unavailable": "Map unavailable for this trip.",
-    "startNavigation": "Start Navigation"
+    "startNavigation": "Start Navigation",
+    "openInGoogleMaps": "Open in Google Maps"
   },
   "sim": {
     "fastForward": "Simulate",

@@ -9,7 +9,7 @@ export default function PulseRow({ tiles }) {
   return (
     <div className="dv-pulse-row dv-section-gap">
       {tiles.map((tile) => (
-        <div className="dv-pulse-tile" key={tile.key}>
+        <div className={`dv-pulse-tile${tile.tone ? ` tone-${tile.tone}` : ''}`} key={tile.key}>
           <div className="dv-pulse-label">{tile.label}</div>
           <div className="dv-pulse-value">
             {tile.value}

@@ -1,0 +1,155 @@
+/* AddressInput.jsx -- address search / quick-pick / map-click / live
+   location. Scoped class names (addr-input-*) so this never collides
+   with the generic .input/.field rules in index.css that every other
+   form field still uses for its own base look. */
+
+.addr-input-wrap {
+  position: relative;
+}
+
+.addr-input-row {
+  display: flex;
+  gap: 6px;
+}
+
+.addr-input-row .input {
+  flex: 1;
+}
+
+.addr-input-iconbtn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: border-color 0.12s ease, color 0.12s ease;
+}
+
+.addr-input-iconbtn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.addr-input-iconbtn.active {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+}
+
+.addr-input-iconbtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.addr-input-suggestions {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--base);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.addr-input-suggestion {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  color: var(--ink);
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.addr-input-suggestion:last-child {
+  border-bottom: none;
+}
+
+.addr-input-suggestion:hover,
+.addr-input-suggestion.is-active {
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+.addr-input-suggestion-muted {
+  padding: 9px 12px;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+
+.addr-input-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.addr-input-chip {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-muted);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.addr-input-chip:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.addr-input-map {
+  margin-top: 8px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1.5px solid var(--line);
+  position: relative;
+}
+
+.addr-input-map-hint {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  background: color-mix(in srgb, var(--base) 88%, transparent);
+  color: var(--ink-muted);
+  font-size: 11.5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.addr-input-status {
+  font-size: 12px;
+  color: var(--ink-muted);
+  margin-top: 4px;
+}
+
+.addr-input-status.is-error {
+  color: #dc2626;
+}
+
+.spin {
+  animation: addr-spin 0.8s linear infinite;
+}
+@keyframes addr-spin {
+  to { transform: rotate(360deg); }
+}

@@ -121,4 +121,4 @@ function findBestChainForTrip({ vehicle, trip, openLoads }) {
   };
 }
 
-module.exports = { findBestChainForTrip, MAX_HOPS_SUPPORTED };
+module.exports = { findBestChainForTrip, scoreLeg2Candidates, MAX_HOPS_SUPPORTED };

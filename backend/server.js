@@ -17,6 +17,7 @@ const insightsRoutes = require('./routes/insights');
 const paymentRoutes = require('./routes/payments');
 const ratingRoutes = require('./routes/ratings');
 const notificationRoutes = require('./routes/notifications');
+const geocodeRoutes = require('./routes/geocode'); // proxies OpenStreetMap Nominatim for AddressInput.jsx -- see routes/geocode.js
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -54,6 +55,7 @@ app.use('/api/insights', insightsRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/ratings', ratingRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/geocode', geocodeRoutes);
 
 app.get('/', (req, res) => {
   res.send('IBLMS learn backend is running. Try /api/health.');

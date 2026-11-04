@@ -1234,16 +1234,19 @@ export default function FleetDashboard({ user, onLogout }) {
     reloadDrivers();
     reloadRequests();
 
-    // Keeps Overview's tiles/charts "live" without a socket -- same 20s
-    // cadence NotificationBell.jsx already polls at. Trips/vehicles/
-    // drivers change far less often than requests do, but polling all
-    // four here is cheap (plain GETs the user already has list endpoints
-    // for) and keeps every Overview widget derived from this same state
-    // in sync with each other, not just the one that changes fastest.
+    // "Live" Overview (user asked for second-by-second updates) -- polls
+    // every second but skips the actual fetch while this tab isn't
+    // visible, so a backgrounded/minimized tab doesn't keep hammering the
+    // API for no one to see. Trips/vehicles/drivers change far less often
+    // than requests do, but polling both here is cheap (plain GETs the
+    // user already has list endpoints for) and keeps every Overview
+    // widget derived from this same state in sync with each other, not
+    // just the one that changes fastest.
     const liveTimer = setInterval(() => {
+      if (document.hidden) return;
       reloadRequests();
       reloadTrips();
-    }, 20000);
+    }, 1000);
     return () => clearInterval(liveTimer);
   }, []);
 
@@ -1415,6 +1418,15 @@ export default function FleetDashboard({ user, onLogout }) {
     [requests],
   );
 
+  // A second, genuinely different trend from earningsTrend above (that
+  // one is estimated money; this one is throughput) -- how many bookings
+  // actually reached 'completed' per day over the same 14-day window,
+  // off the same already-loaded `requests` list.
+  const completedTrend = useMemo(
+    () => bucketByDay(requests.filter((r) => r.status === 'completed'), (r) => r.updatedAt || r.createdAt, 14),
+    [requests],
+  );
+
   const recentActivity = useMemo(
     () =>
       [...requests]
@@ -1459,12 +1471,22 @@ export default function FleetDashboard({ user, onLogout }) {
             <RequestPipeline buckets={pipelineBuckets} />
           </div>
 
-          <div className="card dv-section-gap">
-            <div className="wg-panel-header">
-              <h3>{t('dashboard.fleet.earningsTrend', 'Earnings trend, last 14 days')}</h3>
-              <span className="wg-panel-sub">{t('dashboard.fleet.liveUpdating', 'Updates automatically')}</span>
+          <div className="dv-two-col dv-section-gap">
+            <div className="card">
+              <div className="wg-panel-header">
+                <h3>{t('dashboard.fleet.earningsTrend', 'Earnings trend, last 14 days')}</h3>
+                <span className="wg-panel-sub wg-live-sub">
+                  <span className="wg-live-dot" /> {t('dashboard.live', 'Live')}
+                </span>
+              </div>
+              <MiniLineChart data={earningsTrend} color="var(--good)" emptyText={t('dashboard.fleet.earningsTrendEmpty', 'Not enough data yet.')} />
             </div>
-            <MiniLineChart data={earningsTrend} color="var(--good)" emptyText={t('dashboard.fleet.earningsTrendEmpty', 'Not enough data yet.')} />
+            <div className="card">
+              <div className="wg-panel-header">
+                <h3>{t('dashboard.fleet.completedTrend', 'Completed bookings, last 14 days')}</h3>
+              </div>
+              <MiniLineChart data={completedTrend} color="var(--teal)" emptyText={t('dashboard.fleet.completedTrendEmpty', 'Not enough data yet.')} />
+            </div>
           </div>
 
           <div className="dv-panel">

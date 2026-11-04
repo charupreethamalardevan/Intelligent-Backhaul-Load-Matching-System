@@ -139,7 +139,13 @@ export default function AddressInput({
   }
 
   function handleMapClick(lat, lng) {
-    reverseGeocode(lat, lng).then((resolved) => pick({ label: resolved.label, lat, lng }));
+    // Belt-and-suspenders fallback -- reverseGeocode()/the backend's own
+    // /geocode/reverse already guarantee a non-empty label (a plain
+    // "lat, lng" string when Nominatim has no address for the point), but
+    // this file's own contract promises callers a full {label,lat,lng}
+    // object, never one with a blank label, so guard here too rather than
+    // trust every caller up the chain to never regress that.
+    reverseGeocode(lat, lng).then((resolved) => pick({ label: resolved.label || `${lat.toFixed(5)}, ${lng.toFixed(5)}`, lat, lng }));
   }
 
   function clear() {

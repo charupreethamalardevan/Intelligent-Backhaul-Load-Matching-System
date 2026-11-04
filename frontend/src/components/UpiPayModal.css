@@ -109,9 +109,9 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Method tabs: UPI is the only functional one; Card/Netbanking are shown
-   disabled, like a real gateway's "more methods coming" state, rather
-   than wired up as a second fake flow. */
+/* Method tabs: all three (UPI/Card/Netbanking) are real, selectable
+   demo flows -- see UpiPayModal.jsx's own header comment for what "real"
+   means here (a staged demo sequence, never an actual gateway/bank). */
 .upi-method-tabs {
   display: flex;
   gap: 6px;
@@ -131,7 +131,13 @@
   color: var(--muted);
   font-size: 12.5px;
   font-weight: 700;
-  cursor: default;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.upi-method-tab:hover:not(.active) {
+  border-color: var(--upi-blue);
+  color: var(--text);
 }
 
 .upi-method-tab.active {
@@ -139,11 +145,6 @@
   border-color: var(--upi-blue);
   color: var(--upi-blue);
   cursor: default;
-}
-
-.upi-method-tab:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .upi-payee {
@@ -320,6 +321,78 @@
 
 .upi-input:focus {
   border-color: var(--upi-blue);
+}
+
+select.upi-input {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 18px) center, calc(100% - 13px) center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 32px;
+}
+
+.upi-field-row {
+  display: flex;
+  gap: 10px;
+}
+
+/* Card art -- a brand-neutral gradient card face (no real network/issuer
+   mark) that mirrors back the digits/expiry as they're typed, purely so
+   the sheet keeps the "look" of a real checkout's card panel. */
+.upi-card-art {
+  width: 100%;
+  max-width: 220px;
+  aspect-ratio: 85 / 54;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--upi-blue), #1d3a7a);
+  color: #fff;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+}
+
+.upi-card-art-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.upi-card-art-chip {
+  width: 26px;
+  height: 19px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #e8cf7a, #cda43f);
+}
+
+.upi-card-art-number {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+
+.upi-card-art-exp {
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Netbanking art -- a simple bank-glyph medallion, the visual stand-in
+   for "you'll be redirected to your bank" since there's no real bank to
+   screenshot. */
+.upi-bank-art {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--upi-blue-soft);
+  color: var(--upi-blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .upi-error {

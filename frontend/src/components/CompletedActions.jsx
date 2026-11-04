@@ -30,7 +30,7 @@ import { locationLabel } from '../lib/locationLabel.js';
 // Each side may rate the OTHER side once (the backend enforces that
 // limit via a compound unique index -- this just hides the form once
 // it's already been done, same "backend is the real authority" pattern).
-export default function CompletedActions({ request, user }) {
+export default function CompletedActions({ request, user, onChange }) {
   const { t } = useTranslation();
   const [payment, setPayment] = useState(undefined); // undefined = still loading
   const [ratings, setRatings] = useState(undefined);
@@ -73,6 +73,7 @@ export default function CompletedActions({ request, user }) {
     try {
       await createPayment(request._id, Number(payForm.amount), payForm.method, payForm.transactionRef || undefined);
       load();
+      onChange?.();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -80,9 +81,16 @@ export default function CompletedActions({ request, user }) {
     }
   }
 
-  async function confirmUpiPayment({ amount, transactionRef }) {
-    await createPayment(request._id, amount, 'upi', transactionRef);
+  async function confirmUpiPayment({ amount, transactionRef, method }) {
+    // method comes from whichever tab was selected inside the modal (UPI/
+    // Card/Netbanking -- see UpiPayModal.jsx) -- falls back to 'upi' only
+    // for safety, that tab is always the default and always available.
+    await createPayment(request._id, amount, method || 'upi', transactionRef);
     load();
+    // Lets a parent that keeps its own aggregate view of payments (e.g.
+    // PaymentsPanel.jsx's stat strip) refresh right away instead of only
+    // on next mount -- optional, every other caller just omits it.
+    onChange?.();
   }
 
   async function submitRating(e) {

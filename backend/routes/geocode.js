@@ -49,7 +49,12 @@ router.get('/search', async (req, res) => {
     const data = await r.json();
     const results = (Array.isArray(data) ? data : [])
       .map((d) => ({ label: d.display_name, lat: Number(d.lat), lng: Number(d.lon) }))
-      .filter((d) => Number.isFinite(d.lat) && Number.isFinite(d.lng));
+      // A result with no display_name (rare, but seen from Nominatim on
+      // sparse-data points) must never reach the frontend -- AddressInput.jsx
+      // hands whatever label it gets straight to onChange, and a blank one
+      // used to end up saved on the Route/Load as an empty location label
+      // (rendered as "undefined"/blank everywhere downstream).
+      .filter((d) => Number.isFinite(d.lat) && Number.isFinite(d.lng) && typeof d.label === 'string' && d.label.trim().length > 0);
     res.json({ results });
   } catch (err) {
     console.error('[geocode/search]', err.message);

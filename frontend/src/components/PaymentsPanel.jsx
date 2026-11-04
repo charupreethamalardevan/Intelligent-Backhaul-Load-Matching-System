@@ -1,9 +1,27 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { listRequests, STATUS_LABELS } from '../lib/requestApi.js';
+import { getPayment, PAYMENT_METHOD_LABELS } from '../lib/paymentApi.js';
 import CompletedActions from './CompletedActions.jsx';
+import StatCard from './StatCard.jsx';
+import { MiniBarChart } from './MiniCharts.jsx';
+import { IconWallet, IconCheckCircle, IconClock, IconClipboard } from './icons.jsx';
 import './dataViews.css';
+import './widgets.css';
 import { locationLabel } from '../lib/locationLabel.js';
+
+// Fixed, never-cycled colour per payment method -- same "assign
+// categorical hues in a fixed order" rule the status charts already
+// follow elsewhere in this app. Card/Netbanking reuse the modal's own
+// method order (UPI, Card, Netbanking); Bank transfer/Cash are the two
+// extra methods only reachable via "Pay by another method".
+const METHOD_COLORS = {
+  upi: 'var(--info)',
+  card: 'var(--violet)',
+  netbanking: 'var(--teal)',
+  bank_transfer: 'var(--accent)',
+  cash: 'var(--good)',
+};
 
 // Dedicated "Payments" dashboard, split out of RequestsPanel so recording
 // a payment (and leaving a rating) for a finished booking has its own
@@ -16,54 +34,100 @@ import { locationLabel } from '../lib/locationLabel.js';
 export default function PaymentsPanel({ user }) {
   const { t } = useTranslation();
   const [requests, setRequests] = useState([]);
+  const [payments, setPayments] = useState({}); // matchId -> payment | null, undefined while unresolved
   const [error, setError] = useState(null);
 
   function load() {
     listRequests()
-      .then((all) => setRequests(all.filter((r) => r.status === 'completed')))
+      .then((all) => {
+        const completed = all.filter((r) => r.status === 'completed');
+        setRequests(completed);
+        // One GET per completed trip -- this page isn't live-polled (the
+        // Overview tiles are, see PosterDashboard.jsx/FleetDashboard.jsx),
+        // so fetching each completed trip's payment once here (to build the
+        // stat strip below) is a handful of cheap calls, not a hot loop.
+        return Promise.all(
+          completed.map((r) =>
+            getPayment(r._id)
+              .then((p) => [r._id, p])
+              .catch(() => [r._id, null]),
+          ),
+        );
+      })
+      .then((pairs) => setPayments(Object.fromEntries(pairs)))
       .catch((err) => setError(err.message));
   }
 
   useEffect(load, []);
 
+  const paidList = Object.values(payments).filter(Boolean);
+  const totalSettled = paidList.reduce((sum, p) => sum + (p.amount || 0), 0);
+  const pendingCount = requests.length - paidList.length;
+  const methodChart = Object.entries(
+    paidList.reduce((acc, p) => {
+      acc[p.method] = (acc[p.method] || 0) + 1;
+      return acc;
+    }, {}),
+  ).map(([method, value]) => ({ label: PAYMENT_METHOD_LABELS[method] || method, value, color: METHOD_COLORS[method] || 'var(--info)' }));
+
   return (
-    <div className="dv-panel">
-      <div className="dv-panel-head">
-        <h2>
-          {t('dashboard.section.payments.title', 'Payments')} · {requests.length}
-        </h2>
-      </div>
-      <p className="dv-hint" style={{ padding: '0 18px 10px' }}>
-        {t('dashboard.payments.help', 'A trip shows up here the moment it is marked completed -- payment and rating only unlock once the trip is actually over.')}
-      </p>
-      {error && <p style={{ color: 'var(--critical)', fontSize: 14, padding: '0 18px 10px' }}>{error}</p>}
-      {requests.length === 0 ? (
-        <div className="dv-empty">{t('dashboard.payments.noneYet', 'No completed trips to settle yet.')}</div>
-      ) : (
-        requests.map((r) => {
-          const trip = r.tripId;
-          const load = r.loadId;
-          return (
-            <div key={r._id} className="dv-req-row">
-              <div className="dv-req-top">
-                <div>
-                  <div className="dv-req-route">
-                    {trip ? `${locationLabel(trip.source)} → ${locationLabel(trip.destination)}` : 'Trip removed'}
-                    <span className="sep"> carrying </span>
-                    {load ? `${locationLabel(load.pickupLocation)} → ${locationLabel(load.deliveryLocation)}` : 'Load removed'}
-                  </div>
-                  <div className="dv-req-sub">
-                    {load ? `${load.cargoType}, ${load.cargoWeightTonnes}t` : ''}
-                    {r.profitability && !r.profitability.error ? ` · Est. profit ₹${r.profitability.estimatedProfit}` : ''}
-                  </div>
-                </div>
-                <span className="dv-status-chip tone-done">{t(`status.${r.status}`, STATUS_LABELS[r.status] || r.status)}</span>
-              </div>
-              <CompletedActions request={r} user={user} />
-            </div>
-          );
-        })
+    <>
+      {requests.length > 0 && (
+        <div className="wg-overview-grid dv-section-gap">
+          <StatCard icon={IconWallet} label={t('dashboard.payments.totalSettled', 'Total settled')} value={`₹${totalSettled.toLocaleString('en-IN')}`} accent="good" />
+          <StatCard icon={IconCheckCircle} label={t('dashboard.payments.tripsPaid', 'Trips paid')} value={paidList.length} accent="blue" />
+          <StatCard icon={IconClock} label={t('dashboard.payments.awaitingPayment', 'Awaiting payment')} value={pendingCount} accent={pendingCount > 0 ? 'amber' : 'good'} />
+          <StatCard icon={IconClipboard} label={t('dashboard.payments.completedTrips', 'Completed trips')} value={requests.length} accent="violet" />
+        </div>
       )}
-    </div>
+
+      {methodChart.length > 1 && (
+        <div className="card dv-section-gap">
+          <div className="wg-panel-header">
+            <h3>{t('dashboard.payments.byMethod', 'Settled by method')}</h3>
+          </div>
+          <MiniBarChart data={methodChart} />
+        </div>
+      )}
+
+      <div className="dv-panel">
+        <div className="dv-panel-head">
+          <h2>
+            {t('dashboard.section.payments.title', 'Payments')} · {requests.length}
+          </h2>
+        </div>
+        <p className="dv-hint" style={{ padding: '0 18px 10px' }}>
+          {t('dashboard.payments.help', 'A trip shows up here the moment it is marked completed -- payment and rating only unlock once the trip is actually over.')}
+        </p>
+        {error && <p style={{ color: 'var(--critical)', fontSize: 14, padding: '0 18px 10px' }}>{error}</p>}
+        {requests.length === 0 ? (
+          <div className="dv-empty">{t('dashboard.payments.noneYet', 'No completed trips to settle yet.')}</div>
+        ) : (
+          requests.map((r) => {
+            const trip = r.tripId;
+            const load = r.loadId;
+            return (
+              <div key={r._id} className="dv-req-row">
+                <div className="dv-req-top">
+                  <div>
+                    <div className="dv-req-route">
+                      {trip ? `${locationLabel(trip.source)} → ${locationLabel(trip.destination)}` : 'Trip removed'}
+                      <span className="sep"> carrying </span>
+                      {load ? `${locationLabel(load.pickupLocation)} → ${locationLabel(load.deliveryLocation)}` : 'Load removed'}
+                    </div>
+                    <div className="dv-req-sub">
+                      {load ? `${load.cargoType}, ${load.cargoWeightTonnes}t` : ''}
+                      {r.profitability && !r.profitability.error ? ` · Est. profit ₹${r.profitability.estimatedProfit}` : ''}
+                    </div>
+                  </div>
+                  <span className="dv-status-chip tone-done">{t(`status.${r.status}`, STATUS_LABELS[r.status] || r.status)}</span>
+                </div>
+                <CompletedActions request={r} user={user} onChange={load} />
+              </div>
+            );
+          })
+        )}
+      </div>
+    </>
   );
 }

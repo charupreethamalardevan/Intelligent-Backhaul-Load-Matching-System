@@ -38,6 +38,39 @@
   color: var(--muted);
 }
 
+/* "Live" pulsing indicator -- used on any Overview panel whose data is
+   kept fresh by the dashboard's 1s poll (PosterDashboard.jsx/
+   FleetDashboard.jsx), so the second-by-second refresh is visible, not
+   just felt as numbers silently changing underneath you. */
+.wg-live-sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--good);
+  font-weight: 700;
+}
+
+.wg-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--good);
+  flex-shrink: 0;
+  animation: wg-live-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes wg-live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--good-soft);
+  }
+  70% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
 /* ---------- Stat card ---------- */
 
 .wg-stat-card {

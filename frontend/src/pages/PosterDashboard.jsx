@@ -304,13 +304,16 @@ export default function PosterDashboard({ user, onLogout }) {
     reloadLoads();
     reloadRequests();
 
-    // Same 20s "live" poll FleetDashboard.jsx's Overview now uses (and
-    // NotificationBell.jsx already did) -- keeps the stat tiles and the
-    // loadsChart/requestStatusChart below in sync without a socket.
+    // "Live" Overview (user asked for second-by-second updates) -- polls
+    // every second but skips the actual fetch while this tab isn't
+    // visible, so a backgrounded/minimized tab doesn't keep hammering the
+    // API for no one to see. Same pattern FleetDashboard.jsx's Overview
+    // now uses.
     const liveTimer = setInterval(() => {
+      if (document.hidden) return;
       reloadLoads();
       reloadRequests();
-    }, 20000);
+    }, 1000);
     return () => clearInterval(liveTimer);
   }, []);
 
@@ -343,6 +346,38 @@ export default function PosterDashboard({ user, onLogout }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see
     // FleetDashboard.jsx's identical comment on this same pattern.
   }, [requests, t, i18n.language]);
+
+  // Mirrors FleetDashboard.jsx's own earningsTrend -- a 14-day trend of
+  // estimated profit, summing profitability.estimatedProfit (already
+  // computed by the matching engine, nothing newly fetched for this)
+  // across every request that isn't rejected/cancelled, bucketed by when
+  // it was requested.
+  const profitTrend = useMemo(
+    () =>
+      bucketByDay(
+        requests.filter((r) => r.status !== 'rejected' && r.status !== 'cancelled'),
+        (r) => r.createdAt,
+        14,
+        (r) => (r.profitability && !r.profitability.error ? r.profitability.estimatedProfit : 0),
+      ),
+    [requests],
+  );
+
+  // What's actually moving through this poster's own loads, by cargo
+  // type -- a single fixed hue (each bar already carries its own x-axis
+  // label, so colour doesn't need to encode identity here) counted
+  // straight off the already-loaded `loads` list, same "no new fetch"
+  // rule as every other Overview chart on this page.
+  const cargoMixChart = useMemo(() => {
+    const counts = {};
+    for (const l of loads) counts[l.cargoType] = (counts[l.cargoType] || 0) + 1;
+    return CARGO_TYPES.filter((c) => counts[c.id]).map((c) => ({
+      label: t(`catalog.cargoTypes.${c.id}`, c.label),
+      value: counts[c.id],
+      color: 'var(--violet)',
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loads, t, i18n.language]);
 
   const recentActivity = useMemo(
     () =>
@@ -390,7 +425,9 @@ export default function PosterDashboard({ user, onLogout }) {
             <div className="card">
               <div className="wg-panel-header">
                 <h3>Loads posted, last 14 days</h3>
-                <span className="wg-panel-sub">Updates automatically</span>
+                <span className="wg-panel-sub wg-live-sub">
+                  <span className="wg-live-dot" /> {t('dashboard.live', 'Live')}
+                </span>
               </div>
               <MiniLineChart data={loadsChart} color="var(--teal)" emptyText="No loads posted yet." />
             </div>
@@ -399,6 +436,22 @@ export default function PosterDashboard({ user, onLogout }) {
                 <h3>Recent activity</h3>
               </div>
               <ActivityList items={recentActivity} emptyText="No requests yet." />
+            </div>
+          </div>
+
+          <div className="wg-row-2">
+            <div className="card">
+              <div className="wg-panel-header">
+                <h3>{t('dashboard.profitTrend', 'Profit trend, last 14 days')}</h3>
+                <span className="wg-panel-sub">{t('dashboard.estimatedFromBookings', 'Estimated, from matched bookings')}</span>
+              </div>
+              <MiniLineChart data={profitTrend} color="var(--good)" emptyText="Not enough data yet." />
+            </div>
+            <div className="card">
+              <div className="wg-panel-header">
+                <h3>{t('dashboard.cargoMix', 'Cargo mix')}</h3>
+              </div>
+              <MiniBarChart data={cargoMixChart} emptyText="No loads posted yet." />
             </div>
           </div>
 

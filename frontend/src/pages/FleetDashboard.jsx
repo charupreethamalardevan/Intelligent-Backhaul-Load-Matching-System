@@ -7,7 +7,7 @@ import { createRequest, listRequests, updateRequestStatus, STATUS_LABELS } from 
 import { discoverLoads } from '../lib/loadApi.js';
 import { demandForecast, emptyRunRisk, warmMl } from '../lib/insightsApi.js';
 import { timeAgo, bucketByDay } from '../lib/time.js';
-import { MiniLineChart } from '../components/MiniCharts.jsx';
+import { MiniBarChart } from '../components/MiniCharts.jsx';
 import MatchResults from '../components/MatchResults.jsx';
 import ChainComparison from '../components/ChainComparison.jsx';
 import RequestsPanel from '../components/RequestsPanel.jsx';
@@ -1499,13 +1499,13 @@ export default function FleetDashboard({ user, onLogout }) {
                   <span className="wg-live-dot" /> {t('dashboard.live', 'Live')}
                 </span>
               </div>
-              <MiniLineChart data={earningsTrend} color="var(--good)" emptyText={t('dashboard.fleet.earningsTrendEmpty', 'Not enough data yet.')} />
+              <MiniBarChart data={earningsTrend} color="var(--good)" dense emptyText={t('dashboard.fleet.earningsTrendEmpty', 'Not enough data yet.')} />
             </div>
             <div className="card">
               <div className="wg-panel-header">
                 <h3>{t('dashboard.fleet.completedTrend', 'Completed bookings, last 14 days')}</h3>
               </div>
-              <MiniLineChart data={completedTrend} color="var(--teal)" emptyText={t('dashboard.fleet.completedTrendEmpty', 'Not enough data yet.')} />
+              <MiniBarChart data={completedTrend} color="var(--teal)" dense emptyText={t('dashboard.fleet.completedTrendEmpty', 'Not enough data yet.')} />
             </div>
           </div>
 

@@ -81,15 +81,27 @@ export function MiniLineChart({ data, emptyText = 'Not enough data yet.', color 
 
 // data: [{ label, value, color? }]. color defaults to the theme info blue;
 // pass distinct colors per bucket (e.g. status breakdowns) for a legend.
-export function MiniBarChart({ data, emptyText = 'No data yet.', showLegend = true }) {
+//
+// `dense` is for a many-bucket series (e.g. a 14-day daily count) rather
+// than a handful of named categories (cargo types, statuses). With 10+
+// skinny bars, a label under every single one and a value number over
+// every single one -- mostly "0" on a day with no activity -- just
+// overlaps into noise. Dense mode borrows MiniLineChart's own solution to
+// the identical problem: only label the first/middle/last bar, and drop
+// the per-bar value number entirely (still available on hover via the
+// existing <title>, same as every other mark in these charts).
+export function MiniBarChart({ data, emptyText = 'No data yet.', showLegend = true, dense = false, color = 'var(--info)' }) {
   if (!data || data.every((d) => d.value === 0)) {
     return <div className="wg-chart-empty">{emptyText}</div>;
   }
   const max = Math.max(1, ...data.map((d) => d.value));
   const barW = Math.min(52, (W - PAD * 2) / data.length - 16);
   const gap = (W - PAD * 2 - barW * data.length) / Math.max(1, data.length - 1);
-  const distinctColors = new Set(data.map((d) => d.color || 'var(--info)'));
+  const distinctColors = new Set(data.map((d) => d.color || color));
   const legend = showLegend && distinctColors.size > 1;
+  // Thin dense bars read as pills, not bars, at the same 7px corner radius
+  // a wide category bar uses -- cap it to a fraction of the bar's own width.
+  const rx = Math.min(7, barW / 2.5);
 
   return (
     <>
@@ -99,20 +111,25 @@ export function MiniBarChart({ data, emptyText = 'No data yet.', showLegend = tr
           const x = PAD + i * (barW + gap);
           const barH = Math.max(3, (d.value / max) * (H - PAD * 2 - 14));
           const y = H - PAD - barH;
-          const barColor = d.color || 'var(--info)';
+          const barColor = d.color || color;
+          const showLabel = !dense || i === 0 || i === data.length - 1 || i === Math.floor(data.length / 2);
           return (
             <g key={d.label}>
-              <rect x={x} y={y} width={barW} height={barH} rx="7" fill={barColor} opacity={d.value === 0 ? 0.25 : 1}>
+              <rect x={x} y={y} width={barW} height={barH} rx={rx} fill={barColor} opacity={d.value === 0 ? 0.25 : 1}>
                 <title>
                   {d.label}: {d.value}
                 </title>
               </rect>
-              <text x={x + barW / 2} y={H - PAD + 16} textAnchor="middle" className="wg-chart-axis-label">
-                {d.label}
-              </text>
-              <text x={x + barW / 2} y={y - 6} textAnchor="middle" className="wg-chart-bar-value">
-                {d.value}
-              </text>
+              {showLabel && (
+                <text x={x + barW / 2} y={H - PAD + 16} textAnchor="middle" className="wg-chart-axis-label">
+                  {d.label}
+                </text>
+              )}
+              {!dense && (
+                <text x={x + barW / 2} y={y - 6} textAnchor="middle" className="wg-chart-bar-value">
+                  {d.value}
+                </text>
+              )}
             </g>
           );
         })}
@@ -121,7 +138,7 @@ export function MiniBarChart({ data, emptyText = 'No data yet.', showLegend = tr
         <div className="wg-chart-legend">
           {data.map((d) => (
             <div className="wg-chart-legend-item" key={d.label}>
-              <span className="wg-chart-legend-sw" style={{ background: d.color || 'var(--info)' }} />
+              <span className="wg-chart-legend-sw" style={{ background: d.color || color }} />
               {d.label}
             </div>
           ))}

@@ -291,6 +291,20 @@ router.patch('/:id/status', async (req, res) => {
       return res.status(403).json({ error: 'You cannot accept or reject your own request -- that is up to the other party.' });
     }
 
+    // Past acceptance, only the vehicle side can report real-world
+    // progress -- a Load Poster has no way to know whether a truck has
+    // actually been confirmed/picked up/is in transit/has delivered, and
+    // the frontend never shows these actions on the Poster's own views
+    // (RequestsPanel.jsx's own comment: "Everything past this point is
+    // the vehicle side's job to move forward and track"). That was only
+    // a UI omission, not a server check -- a direct API call from the
+    // Poster side could still have pushed the booking through its whole
+    // lifecycle on its own say-so.
+    const VEHICLE_ONLY_TRANSITIONS = ['confirmed', 'pickup', 'in_transit', 'delivered', 'completed'];
+    if (VEHICLE_ONLY_TRANSITIONS.includes(nextStatus) && side !== 'vehicle') {
+      return res.status(403).json({ error: 'Only the vehicle side can move this booking past acceptance (confirm, pickup, in transit, delivered, completed).' });
+    }
+
     match.status = nextStatus;
     if (nextStatus === 'confirmed' && !match.matchedAt) match.matchedAt = new Date();
     if (nextStatus === 'pickup') match.pickupConfirmedTime = new Date();

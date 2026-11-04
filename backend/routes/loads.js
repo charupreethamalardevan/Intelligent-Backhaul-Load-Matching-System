@@ -9,6 +9,7 @@ const { distanceKm } = require('../utils/distance');
 const { estimateProfitability } = require('../services/profitability');
 const { scoreLeg2Candidates } = require('../services/chainFinder');
 const { scopeOwnerId } = require('./trucks');
+const { getBusyWindowsByTruck, windowsOverlap } = require('../services/truckAvailability');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -168,12 +169,22 @@ router.get('/discover', async (req, res) => {
       return res.status(403).json({ error: 'This vehicle is not assigned to you.' });
     }
 
+    // This vehicle may already be actively committed to a DIFFERENT
+    // load (requested/accepted/confirmed/pickup/in_transit/delivered,
+    // i.e. anything short of rejected/cancelled/completed) -- discovering
+    // and starting a brand-new trip here must not offer a load whose own
+    // [pickupDateTime, deliveryDeadline] window overlaps that existing
+    // commitment, same rule as routes/matching.js and routes/matches.js.
+    // See services/truckAvailability.js.
+    const busyWindows = (await getBusyWindowsByTruck([truck._id])).get(String(truck._id)) || [];
+
     const openLoads = await Load.find({ status: 'open' });
     const candidates = [];
     for (const load of openLoads) {
       if (load.cargoWeightTonnes > truck.maxCapacityTonnes) continue;
       if (load.requiredVehicleType !== 'any' && load.requiredVehicleType !== truck.vehicleType) continue;
       if (availableFrom > new Date(load.deliveryDeadline)) continue;
+      if (busyWindows.some((w) => windowsOverlap(new Date(load.pickupDateTime), new Date(load.deliveryDeadline), new Date(w.start), new Date(w.end)))) continue;
 
       const distanceToPickupKm = distanceKm(origin, load.pickupLocation);
       if (distanceToPickupKm == null || distanceToPickupKm > radiusKm) continue;

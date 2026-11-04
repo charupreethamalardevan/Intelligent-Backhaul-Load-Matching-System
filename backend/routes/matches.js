@@ -11,6 +11,7 @@ const Load = require('../models/Load');
 const Truck = require('../models/Truck');
 const { requireAuth } = require('../middleware/auth');
 const { scoreMatch } = require('../services/matching');
+const { findOverlappingLoad } = require('../services/truckAvailability');
 const { scopeOwnerId } = require('./trucks');
 
 // ER-diagram migration: REPLACES the old routes/requests.js. The booking
@@ -131,6 +132,30 @@ router.post('/', async (req, res) => {
     }
 
     const truck = route.truckId;
+
+    // A truck can only be committed to one job at a time. Without this, a
+    // Fleet/Owner-Driver vehicle could be requested for two different
+    // loads whose [pickupDateTime, deliveryDeadline] windows overlap --
+    // nothing above checks the truck's OTHER active bookings, only that
+    // this exact trip+load pair wasn't already requested twice. If both
+    // got accepted the truck would be double-booked with no way to honor
+    // either one on time. See services/truckAvailability.js for exactly
+    // which statuses count as "still committed" -- the same rule also
+    // keeps an already-busy truck out of the match-recommendation lists
+    // in routes/matching.js, so this is the last-line enforcement, not
+    // the only one.
+    const conflictingLoad = await findOverlappingLoad(truck._id, {
+      pickupDateTime: load.pickupDateTime,
+      deliveryDeadline: load.deliveryDeadline,
+      excludeLoadId: load._id,
+    });
+    if (conflictingLoad) {
+      const fmt = (d) => new Date(d).toISOString().slice(0, 16).replace('T', ' ');
+      return res.status(409).json({
+        error: `This vehicle is already booked on another job from ${fmt(conflictingLoad.pickupDateTime)} to ${fmt(conflictingLoad.deliveryDeadline)}. Pick a different vehicle, or wait until that trip is free.`,
+      });
+    }
+
     const result = scoreMatch({ vehicle: truck, trip: route, load });
     if (!result.eligible) {
       return res.status(400).json({ error: result.reason });

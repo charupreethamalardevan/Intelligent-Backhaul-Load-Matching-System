@@ -8,6 +8,7 @@ const { scoreMatch } = require('../services/matching');
 const { findBestChainForTrip } = require('../services/chainFinder');
 const { getMlCompatibilityBatch, getMlProfitabilityBatch } = require('../services/mlClient');
 const { scopeOwnerId } = require('./trucks');
+const { getBusyWindowsByTruck, windowsOverlap } = require('../services/truckAvailability');
 
 // ER-diagram migration: reads from the `routes`/Truck collections instead
 // of the old `trips`/Vehicle ones. Every exported endpoint, URL path, and
@@ -65,8 +66,20 @@ router.get('/for-trip/:tripId', async (req, res) => {
     const ownerUser = await User.findById(route.truckOwnerId).select('ratingAvg');
     const ownerRatingAvg = ownerUser?.ratingAvg ?? null;
 
+    // A truck already committed (active, non-terminal Match) to another
+    // load's [pickupDateTime, deliveryDeadline] window can't actually
+    // take any load whose own window overlaps that one -- filter those
+    // out here so the ranked list never recommends a load this truck
+    // would just get rejected (or double-booked) for at request time.
+    // See services/truckAvailability.js for the full reasoning.
+    const busyWindows = (await getBusyWindowsByTruck([vehicle._id])).get(String(vehicle._id)) || [];
+
     const matches = [];
     for (const load of loads) {
+      const overlapsExistingBooking = busyWindows.some((w) =>
+        windowsOverlap(new Date(load.pickupDateTime), new Date(load.deliveryDeadline), new Date(w.start), new Date(w.end)),
+      );
+      if (overlapsExistingBooking) continue;
       const result = scoreMatch({ vehicle, trip: route, load, ownerRatingAvg });
       if (result.eligible) {
         matches.push({ load, ...result });
@@ -129,10 +142,21 @@ router.get('/for-load/:loadId', async (req, res) => {
     const ownerUsers = await User.find({ _id: { $in: ownerIds } }).select('ratingAvg');
     const ratingByOwnerId = new Map(ownerUsers.map((u) => [String(u._id), u.ratingAvg ?? null]));
 
+    // Same "a busy truck can't take an overlapping load" rule as
+    // /for-trip above, batched across every candidate truck in one query
+    // instead of one per candidate -- see services/truckAvailability.js.
+    const candidateTruckIds = routes.map((r) => r.truckId?._id).filter(Boolean);
+    const busyWindowsByTruck = await getBusyWindowsByTruck(candidateTruckIds);
+    const loadStart = new Date(load.pickupDateTime);
+    const loadEnd = new Date(load.deliveryDeadline);
+
     const matches = [];
     for (const route of routes) {
       const vehicle = route.truckId;
       if (!vehicle || vehicle.status !== 'active') continue;
+      const busyWindows = busyWindowsByTruck.get(String(vehicle._id)) || [];
+      const overlapsExistingBooking = busyWindows.some((w) => windowsOverlap(loadStart, loadEnd, new Date(w.start), new Date(w.end)));
+      if (overlapsExistingBooking) continue;
       const ownerRatingAvg = ratingByOwnerId.get(String(route.truckOwnerId)) ?? null;
       const result = scoreMatch({ vehicle, trip: route, load, ownerRatingAvg });
       if (result.eligible) {

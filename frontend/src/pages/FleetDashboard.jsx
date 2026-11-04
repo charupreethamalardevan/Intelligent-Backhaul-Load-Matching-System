@@ -8,7 +8,7 @@ import { discoverLoads } from '../lib/loadApi.js';
 import { demandForecast, emptyRunRisk, warmMl } from '../lib/insightsApi.js';
 import { timeAgo, bucketByDay } from '../lib/time.js';
 import { MiniLineChart } from '../components/MiniCharts.jsx';
-import MatchResults from '../components/MatchResults.jsx';
+import MatchResults, { contactLine } from '../components/MatchResults.jsx';
 import ChainComparison from '../components/ChainComparison.jsx';
 import RequestsPanel from '../components/RequestsPanel.jsx';
 import PaymentsPanel from '../components/PaymentsPanel.jsx';
@@ -830,6 +830,7 @@ function NearbyLoadsTab({ vehicles, user, reloadTrips, reloadRequests, onViewCur
                         {profitability.distanceKm.detourKm} km {t('forms.nearbyLoads.extraToReach', 'extra to reach it')}
                       </div>
                     )}
+                    <div className="dv-cell-sub">{t('forms.nearbyLoads.postedBy', 'Posted by')}: {contactLine(load.postedBy, { fallback: 'unknown poster' })}</div>
                   </div>
                   <button
                     type="button"
@@ -863,6 +864,7 @@ function NearbyLoadsTab({ vehicles, user, reloadTrips, reloadRequests, onViewCur
                           {t('forms.nearbyLoads.combinedProfit', 'Combined est. profit')}: ₹{profitability.estimatedProfit + suggestedBackhaul.profitability.estimatedProfit}
                         </div>
                       )}
+                      <div className="dv-cell-sub">{t('forms.nearbyLoads.postedBy', 'Posted by')}: {contactLine(suggestedBackhaul.load.postedBy, { fallback: 'unknown poster' })}</div>
                     </div>
                     <button
                       type="button"

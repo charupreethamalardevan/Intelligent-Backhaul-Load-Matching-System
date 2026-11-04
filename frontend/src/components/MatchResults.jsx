@@ -2,6 +2,20 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { locationLabel } from '../lib/locationLabel.js';
 
+// Formats whoever the person looking at this card would actually need to
+// contact -- a name, optionally a company, optionally a phone number --
+// skipping any piece that's blank instead of printing "undefined" or a
+// stray separator. Returns null (render nothing) when there's truly
+// nothing to show, e.g. a truck with no driver assigned yet.
+export function contactLine(person, { fallback } = {}) {
+  if (!person) return fallback || null;
+  const parts = [];
+  if (person.name) parts.push(person.companyName ? `${person.name} (${person.companyName})` : person.name);
+  else if (person.companyName) parts.push(person.companyName);
+  if (person.phone) parts.push(person.phone);
+  return parts.length ? parts.join(' · ') : fallback || null;
+}
+
 const FACTOR_LABELS = {
   routeCompatibility: 'Route Compatibility',
   capacityCompatibility: 'Capacity Fit',
@@ -162,6 +176,9 @@ export default function MatchResults({ matches, mode, fixedId, onRequest }) {
                     <div style={{ fontSize: 13.5, color: 'var(--muted)' }}>
                       {m.load.cargoType} · {m.load.cargoWeightTonnes}t · expects ₹{m.load.expectedPrice}
                     </div>
+                    <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>
+                      Posted by: {contactLine(m.load.postedBy, { fallback: 'unknown poster' })}
+                    </div>
                   </>
                 ) : (
                   <>
@@ -171,6 +188,14 @@ export default function MatchResults({ matches, mode, fixedId, onRequest }) {
                     <div style={{ fontSize: 13.5, color: 'var(--muted)' }}>
                       {m.vehicle.vehicleNumber} · {m.vehicle.vehicleType.replace('_', ' ')} · {m.vehicle.maxCapacityTonnes}t capacity
                     </div>
+                    {contactLine(m.ownerContact) && (
+                      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>Owner: {contactLine(m.ownerContact)}</div>
+                    )}
+                    {(m.vehicle.driverName || m.vehicle.driverPhone) && (
+                      <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>
+                        Driver: {contactLine({ name: m.vehicle.driverName, phone: m.vehicle.driverPhone }, { fallback: 'No driver assigned yet' })}
+                      </div>
+                    )}
                   </>
                 )}
                 <div style={{ fontSize: 13, color: 'var(--teal)', fontWeight: 700, marginTop: 2 }}>

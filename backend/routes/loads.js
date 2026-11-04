@@ -179,7 +179,10 @@ router.get('/discover', async (req, res) => {
     // See services/truckAvailability.js.
     const busyWindows = (await getBusyWindowsByTruck([truck._id])).get(String(truck._id)) || [];
 
-    const openLoads = await Load.find({ status: 'open' });
+    // Populated here (not just the bare postedBy id) so the frontend can
+    // show who posted each candidate -- same "who am I actually dealing
+    // with" info routes/matching.js's /for-trip and /for-load now carry.
+    const openLoads = await Load.find({ status: 'open' }).populate('postedBy', 'name companyName phone');
     const candidates = [];
     for (const load of openLoads) {
       if (load.cargoWeightTonnes > truck.maxCapacityTonnes) continue;

@@ -144,6 +144,13 @@ export default function RequestsPanel({ user, mode = 'current', focusId = null, 
   const [requests, setRequests] = useState([]);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
+  // Starts true: without this, the very first render after mount shows
+  // "Current Trip . 0 / No booking requests yet" (or the History/Track
+  // equivalent) before listRequests() has actually come back -- on a
+  // slow connection or a Render cold start this can sit on screen long
+  // enough to look like the request never arrived, when it's really
+  // just still loading. See PaymentsPanel.jsx for the same fix.
+  const [loading, setLoading] = useState(true);
   // The request currently open in the "Start Navigation" popup, or in the
   // "Simulate" dialog (or null when closed) -- neither sits inline on the
   // row itself anymore, both only ever show once explicitly asked for.
@@ -161,7 +168,8 @@ export default function RequestsPanel({ user, mode = 'current', focusId = null, 
   function load() {
     listRequests()
       .then(setRequests)
-      .catch((err) => setError(err.message));
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
   }
 
   useEffect(load, []);
@@ -225,10 +233,11 @@ export default function RequestsPanel({ user, mode = 'current', focusId = null, 
     }
   }
 
+  const countLabel = loading ? '...' : visibleRequests.length;
   const TITLES = {
-    history: `${t('dashboard.section.history.title', 'History')} · ${visibleRequests.length}`,
-    track: `${t('dashboard.section.trackLoad.title', 'Track Load')} · ${visibleRequests.length}`,
-    current: `${t('dashboard.section.currentTrip.title', 'Current Trip')} · ${visibleRequests.length}`,
+    history: `${t('dashboard.section.history.title', 'History')} · ${countLabel}`,
+    track: `${t('dashboard.section.trackLoad.title', 'Track Load')} · ${countLabel}`,
+    current: `${t('dashboard.section.currentTrip.title', 'Current Trip')} · ${countLabel}`,
   };
 
   return (
@@ -253,7 +262,9 @@ export default function RequestsPanel({ user, mode = 'current', focusId = null, 
           </div>
         </div>
       )}
-      {visibleRequests.length === 0 ? (
+      {loading ? (
+        <div className="dv-empty">{t('dashboard.requests.loading', 'Loading...')}</div>
+      ) : visibleRequests.length === 0 ? (
         <div className="dv-empty">
           {mode === 'history'
             ? t('dashboard.history.noneYet', 'No finished bookings yet -- completed, rejected and cancelled trips will show up here.')

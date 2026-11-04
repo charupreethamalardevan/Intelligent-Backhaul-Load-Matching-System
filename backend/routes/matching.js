@@ -54,7 +54,9 @@ router.get('/for-trip/:tripId', async (req, res) => {
     }
 
     const vehicle = route.truckId;
-    const loads = await Load.find({ status: 'open' });
+    // Populated so the frontend can show who posted each candidate load
+    // alongside the match score, not just the route/cargo numbers.
+    const loads = await Load.find({ status: 'open' }).populate('postedBy', 'name companyName phone');
 
     // Reliability factor (SRS Section 6) -- this truck owner's cached
     // average rating (Rating.js/routes/ratings.js recompute and cache it
@@ -112,7 +114,7 @@ router.get('/chain-for-trip/:tripId', async (req, res) => {
     }
 
     const vehicle = route.truckId;
-    let openLoads = await Load.find({ status: 'open' });
+    let openLoads = await Load.find({ status: 'open' }).populate('postedBy', 'name companyName phone');
 
     // Same "a busy truck can't take an overlapping load" rule as
     // /for-trip and /for-load above -- a chain comparison must not
@@ -151,8 +153,13 @@ router.get('/for-load/:loadId', async (req, res) => {
     // every distinct owner's cached ratingAvg in one query instead of one
     // per candidate.
     const ownerIds = [...new Set(routes.map((r) => String(r.truckOwnerId)).filter(Boolean))];
-    const ownerUsers = await User.find({ _id: { $in: ownerIds } }).select('ratingAvg');
+    const ownerUsers = await User.find({ _id: { $in: ownerIds } }).select('ratingAvg name companyName phone');
     const ratingByOwnerId = new Map(ownerUsers.map((u) => [String(u._id), u.ratingAvg ?? null]));
+    // Same "who am I actually dealing with" info as /for-trip above, but
+    // for the owner of each candidate truck -- keyed separately from
+    // ratingAvg above since that map only ever stores a number, not an
+    // object, and callers of it elsewhere rely on that.
+    const ownerContactById = new Map(ownerUsers.map((u) => [String(u._id), { name: u.name, companyName: u.companyName, phone: u.phone }]));
 
     // Same "a busy truck can't take an overlapping load" rule as
     // /for-trip above, batched across every candidate truck in one query
@@ -172,7 +179,8 @@ router.get('/for-load/:loadId', async (req, res) => {
       const ownerRatingAvg = ratingByOwnerId.get(String(route.truckOwnerId)) ?? null;
       const result = scoreMatch({ vehicle, trip: route, load, ownerRatingAvg });
       if (result.eligible) {
-        matches.push({ trip: route, vehicle, ownerRatingAvg, ...result });
+        const ownerContact = ownerContactById.get(String(route.truckOwnerId)) || null;
+        matches.push({ trip: route, vehicle, ownerRatingAvg, ownerContact, ...result });
       }
     }
     matches.sort((a, b) => b.matchScore - a.matchScore);

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { chainForTrip } from '../lib/chainApi.js';
 import { locationLabel } from '../lib/locationLabel.js';
+import { contactLine } from './MatchResults.jsx';
 
 // A clearly-scoped comparison, not a general route planner: it shows the
 // single best direct backhaul load for this trip side-by-side with the
@@ -22,6 +23,7 @@ function LegCard({ leg, label }) {
       <div style={{ fontSize: 13.5, color: 'var(--muted)' }}>
         {leg.load.cargoType} · {leg.load.cargoWeightTonnes}t · ₹{leg.load.expectedPrice}
       </div>
+      <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Posted by: {contactLine(leg.load.postedBy, { fallback: 'unknown poster' })}</div>
       <div style={{ fontSize: 13.5, color: 'var(--primary)', fontWeight: 700, marginTop: 4 }}>
         {hasProfit ? `${t('chain.estProfit')} ₹${leg.profitability.estimatedProfit}` : '—'}
       </div>

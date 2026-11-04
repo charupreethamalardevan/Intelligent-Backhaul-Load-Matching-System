@@ -11,7 +11,7 @@ import RequestsPanel from '../components/RequestsPanel.jsx';
 import PaymentsPanel from '../components/PaymentsPanel.jsx';
 import DashboardShell from '../components/DashboardShell.jsx';
 import StatCard from '../components/StatCard.jsx';
-import { MiniBarChart } from '../components/MiniCharts.jsx';
+import { MiniLineChart, MiniBarChart } from '../components/MiniCharts.jsx';
 import ActivityList from '../components/ActivityList.jsx';
 import AddressInput from '../components/AddressInput.jsx';
 import RoutePreviewMap from '../components/RoutePreviewMap.jsx';
@@ -429,7 +429,7 @@ export default function PosterDashboard({ user, onLogout }) {
                   <span className="wg-live-dot" /> {t('dashboard.live', 'Live')}
                 </span>
               </div>
-              <MiniBarChart data={loadsChart} color="var(--teal)" dense emptyText="No loads posted yet." />
+              <MiniLineChart data={loadsChart} color="var(--teal)" emptyText="No loads posted yet." />
             </div>
             <div className="card">
               <div className="wg-panel-header">
@@ -445,7 +445,7 @@ export default function PosterDashboard({ user, onLogout }) {
                 <h3>{t('dashboard.profitTrend', 'Profit trend, last 14 days')}</h3>
                 <span className="wg-panel-sub">{t('dashboard.estimatedFromBookings', 'Estimated, from matched bookings')}</span>
               </div>
-              <MiniBarChart data={profitTrend} color="var(--good)" dense emptyText="Not enough data yet." />
+              <MiniLineChart data={profitTrend} color="var(--good)" emptyText="Not enough data yet." />
             </div>
             <div className="card">
               <div className="wg-panel-header">

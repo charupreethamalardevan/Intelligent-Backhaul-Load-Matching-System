@@ -33,6 +33,59 @@ function Gridlines() {
   );
 }
 
+// Monotone cubic (Fritsch-Carlson) interpolation through evenly-spaced
+// points -- turns the straight-segment polyline into a smooth curve
+// *without* ever overshooting a point's own value. That guard matters
+// here specifically: these are sparse daily series (mostly zero days
+// with one or two single-day spikes), and a naive Catmull-Rom smoothing
+// pass would overshoot on exactly that shape, bowing the curve below the
+// zero baseline right next to a spike -- a worse visual bug than the
+// straight-line version it was meant to improve on. Monotone interpolation
+// is the standard fix (same technique as D3's curveMonotoneX): it fits a
+// smooth curve that never introduces a dip or peak the data itself
+// doesn't have.
+function monotonePath(points) {
+  const n = points.length;
+  if (n < 2) return '';
+  if (n === 2) return `M${points[0].x},${points[0].y} L${points[1].x},${points[1].y}`;
+
+  const dx = points[1].x - points[0].x; // evenly spaced, so one delta works for all segments
+  const d = points.slice(0, -1).map((p, i) => (points[i + 1].y - p.y) / dx);
+  const m = new Array(n);
+  m[0] = d[0];
+  m[n - 1] = d[n - 2];
+  for (let i = 1; i < n - 1; i += 1) {
+    m[i] = d[i - 1] === 0 || d[i] === 0 || (d[i - 1] < 0) !== (d[i] < 0) ? 0 : (d[i - 1] + d[i]) / 2;
+  }
+  for (let i = 0; i < n - 1; i += 1) {
+    if (d[i] === 0) {
+      m[i] = 0;
+      m[i + 1] = 0;
+    } else {
+      const a = m[i] / d[i];
+      const b = m[i + 1] / d[i];
+      const h = Math.hypot(a, b);
+      if (h > 3) {
+        const tau = 3 / h;
+        m[i] = tau * a * d[i];
+        m[i + 1] = tau * b * d[i];
+      }
+    }
+  }
+
+  let path = `M${points[0].x.toFixed(1)},${points[0].y.toFixed(1)}`;
+  for (let i = 0; i < n - 1; i += 1) {
+    const p0 = points[i];
+    const p1 = points[i + 1];
+    const c1x = p0.x + dx / 3;
+    const c1y = p0.y + (m[i] * dx) / 3;
+    const c2x = p1.x - dx / 3;
+    const c2y = p1.y - (m[i + 1] * dx) / 3;
+    path += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p1.x.toFixed(1)},${p1.y.toFixed(1)}`;
+  }
+  return path;
+}
+
 // data: [{ label, value }], oldest-first.
 export function MiniLineChart({ data, emptyText = 'Not enough data yet.', color = 'var(--info)' }) {
   if (!data || data.length < 2) {
@@ -45,28 +98,49 @@ export function MiniLineChart({ data, emptyText = 'Not enough data yet.', color 
     const y = PAD + (1 - d.value / max) * (H - PAD * 2 - 10);
     return { x, y, ...d };
   });
-  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const linePath = monotonePath(points);
   const areaPath = `${linePath} L${points[points.length - 1].x.toFixed(1)},${H - PAD} L${points[0].x.toFixed(1)},${H - PAD} Z`;
   const gradientId = `wgLineFill-${color.replace(/[^a-zA-Z0-9]/g, '')}`;
+  const last = points[points.length - 1];
+  // The one direct label this chart gets (per "label selectively, never a
+  // number on every point"): the endpoint value, which is also the most
+  // recent day -- the number a reader actually wants without hovering.
+  const lastLabelAbove = last.y > PAD + 16;
 
   return (
     <svg className="wg-chart-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.32" />
+          <stop offset="0%" stopColor={color} stopOpacity="0.2" />
           <stop offset="100%" stopColor={color} stopOpacity="0" />
         </linearGradient>
       </defs>
       <Gridlines />
       <path d={areaPath} fill={`url(#${gradientId})`} stroke="none" />
-      <path d={linePath} fill="none" stroke={color} strokeWidth="2.75" strokeLinejoin="round" strokeLinecap="round" />
+      <path d={linePath} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
       {points.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r="3.5" fill="var(--card)" stroke={color} strokeWidth="2.25">
+        <circle
+          key={i}
+          cx={p.x}
+          cy={p.y}
+          r={i === points.length - 1 ? 5 : 3.5}
+          fill="var(--card)"
+          stroke={color}
+          strokeWidth={i === points.length - 1 ? 2.5 : 2.25}
+        >
           <title>
             {p.label}: {p.value}
           </title>
         </circle>
       ))}
+      <text
+        x={last.x}
+        y={lastLabelAbove ? last.y - 10 : last.y + 18}
+        textAnchor="end"
+        className="wg-chart-bar-value"
+      >
+        {last.value}
+      </text>
       {points.map(
         (p, i) =>
           (i === 0 || i === points.length - 1 || i === Math.floor(points.length / 2)) && (

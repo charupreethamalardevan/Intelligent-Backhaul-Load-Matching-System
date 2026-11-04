@@ -14,6 +14,7 @@ export const PAYMENT_METHODS = [
   { id: 'bank_transfer', label: 'Bank transfer' },
   { id: 'cash', label: 'Cash' },
   { id: 'card', label: 'Card' },
+  { id: 'netbanking', label: 'Netbanking' },
 ];
 
 export const PAYMENT_METHOD_LABELS = PAYMENT_METHODS.reduce((acc, m) => ({ ...acc, [m.id]: m.label }), {});

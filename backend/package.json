@@ -8,7 +8,8 @@
     "dev": "nodemon server.js",
     "seed": "node scripts/seedPastData.js",
     "seed:demo": "node scripts/seedDemoAccounts.js",
-    "seed:live-demo": "node scripts/seedLiveDemoData.js"
+    "seed:live-demo": "node scripts/seedLiveDemoData.js",
+    "seed:reset-demo": "node scripts/resetAndSeedDemoData.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

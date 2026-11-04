@@ -13,7 +13,7 @@ const paymentSchema = new mongoose.Schema(
   {
     matchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Match', required: true, unique: true },
     amount: { type: Number, required: true, min: 0 },
-    method: { type: String, enum: ['upi', 'bank_transfer', 'cash', 'card'], required: true },
+    method: { type: String, enum: ['upi', 'bank_transfer', 'cash', 'card', 'netbanking'], required: true },
     status: { type: String, enum: ['pending', 'completed', 'failed', 'refunded'], default: 'pending' },
     transactionRef: String,
     paymentTime: { type: Date, default: null },

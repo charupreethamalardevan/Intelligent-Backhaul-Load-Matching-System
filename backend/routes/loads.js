@@ -10,6 +10,7 @@ const { estimateProfitability } = require('../services/profitability');
 const { scoreLeg2Candidates } = require('../services/chainFinder');
 const { scopeOwnerId } = require('./trucks');
 const { getBusyWindowsByTruck, windowsOverlap } = require('../services/truckAvailability');
+const Match = require('../models/Match');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -244,6 +245,20 @@ router.put('/:id', requirePosterRole, async (req, res) => {
     if (String(load.postedBy) !== String(req.user.sub)) {
       return res.status(403).json({ error: 'You can only edit your own loads.' });
     }
+    // A truck already committed to this load (any Match on it that isn't
+    // rejected/cancelled/completed) accepted/was offered it against these
+    // EXACT details -- cargo, weight, dates, locations, price. Silently
+    // changing any of that out from under an active booking would leave
+    // the match scored/accepted against numbers that no longer exist.
+    const activeMatchOnLoad = await Match.findOne({ loadId: load._id, status: { $nin: ['rejected', 'cancelled', 'completed'] } });
+    if (activeMatchOnLoad) {
+      return res.status(409).json({ error: 'This load has an active booking -- cancel it first before editing the load\'s details.' });
+    }
+    // 'status' is deliberately NOT editable here: Load.status is managed
+    // by the match lifecycle (routes/matches.js's PATCH /:id/status side
+    // effects: open <-> matched -> completed), not something the poster
+    // sets by hand -- allowing an arbitrary direct value here would let a
+    // load claim "completed"/"matched" with no Match ever having existed.
     const fields = [
       'pickupLocation',
       'deliveryLocation',
@@ -254,8 +269,19 @@ router.put('/:id', requirePosterRole, async (req, res) => {
       'deliveryDeadline',
       'specialRequirements',
       'expectedPrice',
-      'status',
     ];
+    const hasCoords = (loc) => loc && typeof loc.lat === 'number' && typeof loc.lng === 'number' && loc.label;
+    if (req.body.pickupLocation !== undefined && !hasCoords(req.body.pickupLocation)) {
+      return res.status(400).json({ error: 'pickupLocation must be a selected address, map point or current location, not free text.' });
+    }
+    if (req.body.deliveryLocation !== undefined && !hasCoords(req.body.deliveryLocation)) {
+      return res.status(400).json({ error: 'deliveryLocation must be a selected address, map point or current location, not free text.' });
+    }
+    const nextPickup = req.body.pickupDateTime !== undefined ? new Date(req.body.pickupDateTime) : load.pickupDateTime;
+    const nextDeadline = req.body.deliveryDeadline !== undefined ? new Date(req.body.deliveryDeadline) : load.deliveryDeadline;
+    if (nextPickup > nextDeadline) {
+      return res.status(400).json({ error: 'The delivery deadline must be after the pickup time.' });
+    }
     for (const f of fields) {
       if (req.body[f] !== undefined) load[f] = req.body[f];
     }
@@ -273,6 +299,14 @@ router.delete('/:id', requirePosterRole, async (req, res) => {
     if (!load) return res.status(404).json({ error: 'Load not found.' });
     if (String(load.postedBy) !== String(req.user.sub)) {
       return res.status(403).json({ error: 'You can only remove your own loads.' });
+    }
+    // Same orphaning risk as routes/truckRoutes.js's trip delete and
+    // routes/trucks.js's vehicle delete -- a truck with an active
+    // booking on this load would be left pointing at a load that no
+    // longer exists.
+    const activeMatchOnLoad = await Match.findOne({ loadId: load._id, status: { $nin: ['rejected', 'cancelled', 'completed'] } });
+    if (activeMatchOnLoad) {
+      return res.status(409).json({ error: 'This load has an active booking -- cancel it first before removing the load.' });
     }
     await load.deleteOne();
     res.json({ ok: true });

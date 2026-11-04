@@ -2,6 +2,7 @@ const express = require('express');
 
 const Route = require('../models/Route');
 const Truck = require('../models/Truck');
+const Match = require('../models/Match');
 const { requireAuth } = require('../middleware/auth');
 const { scopeOwnerId } = require('./trucks');
 
@@ -18,10 +19,23 @@ const router = express.Router();
 router.use(requireAuth);
 
 const OWNER_ROLES = ['fleet_owner', 'owner_driver'];
+// A Fleet Driver may create a trip too -- but only to start one for the
+// truck actually assigned to them (checked in the POST handler below,
+// same as every other driver-facing endpoint in this codebase). They may
+// never edit/remove a planned trip, so PUT/DELETE below keep using
+// requireOwnerRole, not this.
+const TRIP_CREATOR_ROLES = [...OWNER_ROLES, 'driver'];
 
 function requireOwnerRole(req, res, next) {
   if (!OWNER_ROLES.includes(req.user.role)) {
     return res.status(403).json({ error: 'Only Fleet Owners and Individual Owners can plan trips.' });
+  }
+  next();
+}
+
+function requireTripCreatorRole(req, res, next) {
+  if (!TRIP_CREATOR_ROLES.includes(req.user.role)) {
+    return res.status(403).json({ error: 'Only Fleet Owners, Individual Owners and their assigned Drivers can plan trips.' });
   }
   next();
 }
@@ -44,7 +58,7 @@ function toLegacyTripShape(route) {
 
 // POST /api/trips -- "this truck will be driving source -> destination
 // from this time, find it a backhaul load" (SRS Section 4, Step 1).
-router.post('/', requireOwnerRole, async (req, res) => {
+router.post('/', requireTripCreatorRole, async (req, res) => {
   try {
     const { vehicleId, source, destination, availableFrom, waypoints } = req.body;
     if (!vehicleId || !source || !destination || !availableFrom) {
@@ -61,12 +75,23 @@ router.post('/', requireOwnerRole, async (req, res) => {
     }
     const truck = await Truck.findById(vehicleId);
     if (!truck) return res.status(404).json({ error: 'Vehicle not found.' });
-    if (String(truck.truckOwnerId) !== String(req.user.sub)) {
+    // A driver may only plan a trip for the vehicle actually assigned to
+    // them; a Fleet/Individual Owner may only plan one for a truck they
+    // themselves own. Either way truckOwnerId below is always the
+    // truck's OWN owner (truck.truckOwnerId), never req.user.sub --
+    // for a driver those are two different people, and getting this
+    // wrong would point the new Route at a TruckOwner row that doesn't
+    // exist for that driver.
+    if (req.user.role === 'driver') {
+      if (!truck.assignedDriverId || String(truck.assignedDriverId) !== String(req.user.sub)) {
+        return res.status(403).json({ error: 'This vehicle is not assigned to you.' });
+      }
+    } else if (String(truck.truckOwnerId) !== String(req.user.sub)) {
       return res.status(403).json({ error: 'You can only plan trips for your own vehicles.' });
     }
     const route = await Route.create({
       truckId: vehicleId,
-      truckOwnerId: req.user.sub,
+      truckOwnerId: truck.truckOwnerId,
       source,
       destination,
       waypoints: Array.isArray(waypoints) ? waypoints : [],
@@ -121,8 +146,17 @@ router.put('/:id', requireOwnerRole, async (req, res) => {
       return res.status(403).json({ error: 'You can only edit your own trips.' });
     }
     const { source, destination, availableFrom, status, waypoints } = req.body;
-    if (source !== undefined) route.source = source;
-    if (destination !== undefined) route.destination = destination;
+    // Same coordinate guarantee as POST / -- a PUT must not be able to
+    // downgrade a route back to a free-text/unresolved point.
+    const hasCoords = (loc) => loc && typeof loc.lat === 'number' && typeof loc.lng === 'number' && loc.label;
+    if (source !== undefined) {
+      if (!hasCoords(source)) return res.status(400).json({ error: 'source must be a selected address, map point or current location, not free text.' });
+      route.source = source;
+    }
+    if (destination !== undefined) {
+      if (!hasCoords(destination)) return res.status(400).json({ error: 'destination must be a selected address, map point or current location, not free text.' });
+      route.destination = destination;
+    }
     if (availableFrom !== undefined) route.availableFrom = availableFrom;
     if (status !== undefined) route.status = status;
     if (waypoints !== undefined) route.waypoints = waypoints;
@@ -140,6 +174,14 @@ router.delete('/:id', requireOwnerRole, async (req, res) => {
     if (!route) return res.status(404).json({ error: 'Trip not found.' });
     if (String(route.truckOwnerId) !== String(req.user.sub)) {
       return res.status(403).json({ error: 'You can only remove your own trips.' });
+    }
+    // Deleting a Route that still has an active (non rejected/cancelled/
+    // completed) Match pointing at it would orphan that Match --
+    // .populate('routeId') on it would come back null everywhere it's
+    // shown (Current Trip, History, the other party's Requests list).
+    const activeMatch = await Match.findOne({ routeId: route._id, status: { $nin: ['rejected', 'cancelled', 'completed'] } });
+    if (activeMatch) {
+      return res.status(409).json({ error: 'This trip has an active booking on it -- cancel that request first before removing the trip.' });
     }
     await route.deleteOne();
     await Truck.updateMany({ routeId: route._id }, { $set: { routeId: null } });

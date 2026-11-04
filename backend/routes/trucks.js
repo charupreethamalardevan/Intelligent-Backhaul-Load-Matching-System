@@ -6,6 +6,7 @@ const Driver = require('../models/Driver');
 const User = require('../models/User');
 const { requireAuth } = require('../middleware/auth');
 const { dimensionsFromVehicleType } = require('../utils/truckTypeMapping');
+const Match = require('../models/Match');
 
 // ER-diagram migration (full normalization, per the user's explicit
 // choice): this file REPLACES the old routes/vehicles.js. The collection
@@ -87,6 +88,15 @@ router.post('/', requireOwnerRole, async (req, res) => {
     const { vehicleNumber, vehicleType, maxCapacityTonnes, fuelType, cargoCompatibility, driverName, driverPhone } = req.body;
     if (!vehicleNumber || !vehicleType || !maxCapacityTonnes) {
       return res.status(400).json({ error: 'vehicleNumber, vehicleType and maxCapacityTonnes are required.' });
+    }
+    // A registration/vehicle number identifies one real physical truck --
+    // the schema itself has no unique index, so without this check the
+    // same plate could be registered twice (even under two different
+    // owner accounts) with nothing stopping it.
+    const normalizedNumber = String(vehicleNumber).trim();
+    const duplicate = await Truck.findOne({ vehicleNumber: normalizedNumber }).collation({ locale: 'en', strength: 2 });
+    if (duplicate) {
+      return res.status(409).json({ error: `A vehicle with the number "${vehicleNumber}" is already registered.` });
     }
     const { capacityClass, bodyType } = dimensionsFromVehicleType(vehicleType);
     const truck = await Truck.create({
@@ -234,6 +244,14 @@ router.delete('/:id', requireOwnerRole, async (req, res) => {
     if (!truck) return res.status(404).json({ error: 'Vehicle not found.' });
     if (String(truck.truckOwnerId) !== String(req.user.sub)) {
       return res.status(403).json({ error: 'You can only remove your own vehicles.' });
+    }
+    // Deleting a truck that still has an active (non rejected/cancelled/
+    // completed) Match on it would orphan that Match for the other party
+    // (the poster) -- their booking would suddenly point at a vehicle
+    // that no longer exists, mid-delivery in the worst case.
+    const activeMatch = await Match.findOne({ truckId: truck._id, status: { $nin: ['rejected', 'cancelled', 'completed'] } });
+    if (activeMatch) {
+      return res.status(409).json({ error: 'This vehicle has an active booking -- it cannot be removed until that booking is completed or cancelled.' });
     }
     await truck.deleteOne();
     await TruckOwner.findByIdAndUpdate(truck.truckOwnerId, { $inc: { fleetSize: -1 } });

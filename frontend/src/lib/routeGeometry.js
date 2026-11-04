@@ -44,7 +44,7 @@ function haversineKm(a, b) {
 // placed at "40% of the way along the road", not just "40% of the way
 // between the two endpoints" -- the two are very different once the road
 // actually bends.
-function withCumulative(points) {
+export function withCumulative(points) {
   const distances = [0];
   for (let i = 1; i < points.length; i += 1) {
     distances.push(
@@ -120,4 +120,21 @@ export function positionAtFraction(route, frac) {
     lat: lat1 + (lat2 - lat1) * segFrac,
     lng: lng1 + (lng2 - lng1) * segFrac,
   };
+}
+
+// Prefixes a route with one extra lead-in point -- used by TripMap's
+// Simulate animation so the marker visibly travels from wherever it's
+// currently shown (e.g. a real GPS fix left over from earlier "Share my
+// location" testing on this booking) to the source pin, and then on along
+// the real route, instead of ignoring that starting point and snapping
+// straight to the source. Recomputes cumulative distances so
+// positionAtFraction's constant-speed timing accounts for the lead-in leg
+// too. Returns the route unchanged if there's no point to lead in from, or
+// the point is already (near enough) at the route's own start.
+export function prependLeadIn(route, point) {
+  if (!route || !route.path || route.path.length === 0) return route;
+  if (!point || point.lat == null || point.lng == null) return route;
+  const [firstLat, firstLng] = route.path[0];
+  if (Math.abs(firstLat - point.lat) < 1e-5 && Math.abs(firstLng - point.lng) < 1e-5) return route;
+  return withCumulative([[point.lat, point.lng], ...route.path]);
 }

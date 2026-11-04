@@ -5,7 +5,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { resolvePoint } from '../lib/resolvePoint.js';
 import { getRequest, updateRequestLocation, stopRequestLocation } from '../lib/requestApi.js';
-import { getRoutePath, positionAtFraction } from '../lib/routeGeometry.js';
+import { getRoutePath, positionAtFraction, prependLeadIn } from '../lib/routeGeometry.js';
 import './TripMap.css';
 
 // Only these two statuses are "actively on the road" -- matches the same
@@ -90,6 +90,17 @@ export default function TripMap({ request, canShareLocation, height = 260, scrol
   // seconds while SimulateModal is running) don't reset it back to the
   // source every time. Cleared whenever this becomes a different booking.
   const simOnceStartRef = useRef(null);
+  // Captures the position the marker was showing (if any -- usually a
+  // real GPS fix left over from earlier "Share my location" testing on
+  // this booking, since a freshly-created booking has none) at the exact
+  // moment the simOnce animation starts, so the marker visibly travels
+  // from there to the source pin and on to the destination, instead of
+  // either snapping straight to the source or (the previous bug) freezing
+  // there for the whole simulation because a real liveLocation used to
+  // short-circuit the animation entirely. Captured once per run, not kept
+  // in sync with later polls, so the lead-in point doesn't shift under
+  // the animation while it's playing.
+  const simLeadInRef = useRef(null);
   // Guards the auto-share effect below so it only ever calls
   // startSharing() once per mount, even though its dependencies
   // (status/sharing) change as the booking moves through pickup ->
@@ -109,6 +120,7 @@ export default function TripMap({ request, canShareLocation, height = 260, scrol
 
   useEffect(() => {
     simOnceStartRef.current = null;
+    simLeadInRef.current = null;
   }, [request._id]);
 
   useEffect(() => {
@@ -165,7 +177,16 @@ export default function TripMap({ request, canShareLocation, height = 260, scrol
   // straight line between the two pins, so this genuinely looks like the
   // vehicle is following the route rather than drifting through fields.
   useEffect(() => {
-    if (!route || hasLive || !SIM_ELIGIBLE_STATUSES.includes(status)) {
+    // Outside simOnce (RequestsPanel/TripMapModal's own embeds), a real
+    // "Live" fix always wins over the simulated preview -- that's
+    // deliberate elsewhere in this component. Inside simOnce
+    // (SimulateModal), it must NOT: this is specifically the demo/replay
+    // feature, so it always animates, even when this booking has a real
+    // liveLocation sitting in the database from earlier GPS-sharing
+    // testing -- that stale point becomes the animation's starting
+    // position instead (see simLeadInRef below), rather than freezing the
+    // marker there for the whole simulation, which was the bug.
+    if (!route || (hasLive && !simOnce) || !SIM_ELIGIBLE_STATUSES.includes(status)) {
       setSimPos(null);
       return undefined;
     }
@@ -176,21 +197,27 @@ export default function TripMap({ request, canShareLocation, height = 260, scrol
       return undefined;
     }
 
-    // simOnce (SimulateModal's embed): travel source -> destination ONE
-    // time over simDurationMs and then hold at the destination, instead
-    // of looping forever. The status keeps advancing every couple of
-    // seconds while Simulate runs, which would otherwise re-trigger this
-    // effect (status is a dependency, so we know when to START) and reset
-    // the clock back to 0 on every single step -- simOnceStartRef is what
-    // keeps the clock running across those re-triggers instead of
-    // restarting it, which is why the marker used to never make it past
-    // the source pin.
+    // simOnce (SimulateModal's embed): travel current-location -> source
+    // -> destination ONE time over simDurationMs and then hold at the
+    // destination, instead of looping forever. The status keeps advancing
+    // every couple of seconds while Simulate runs, which would otherwise
+    // re-trigger this effect (status is a dependency, so we know when to
+    // START) and reset the clock back to 0 on every single step --
+    // simOnceStartRef is what keeps the clock running across those
+    // re-triggers instead of restarting it, which is why the marker used
+    // to never make it past the source pin. simLeadInRef is captured at
+    // that same moment (not kept in sync with later polls) so the route
+    // being animated doesn't shift mid-flight.
     if (simOnce) {
-      if (simOnceStartRef.current == null) simOnceStartRef.current = Date.now();
+      if (simOnceStartRef.current == null) {
+        simOnceStartRef.current = Date.now();
+        simLeadInRef.current = liveLocation && liveLocation.lat != null ? { lat: liveLocation.lat, lng: liveLocation.lng } : null;
+      }
+      const simRoute = prependLeadIn(route, simLeadInRef.current);
       const id = setInterval(() => {
         const elapsed = Date.now() - simOnceStartRef.current;
         const frac = Math.min(1, elapsed / simDurationMs);
-        setSimPos(positionAtFraction(route, frac));
+        setSimPos(positionAtFraction(simRoute, frac));
         if (frac >= 1) clearInterval(id);
       }, SIM_STEP_MS);
       return () => clearInterval(id);
@@ -203,6 +230,7 @@ export default function TripMap({ request, canShareLocation, height = 260, scrol
       setSimPos(positionAtFraction(route, frac));
     }, SIM_STEP_MS);
     return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route, hasLive, status, simOnce, simDurationMs]);
 
   // Report the simulated preview's position too (tagged source:
@@ -218,7 +246,7 @@ export default function TripMap({ request, canShareLocation, height = 260, scrol
   // into a fake "Live" (red) marker for the other party watching the same
   // booking. Only a real GPS reading does that.
   useEffect(() => {
-    if (!canShareLocation || hasLive || !ACTIVE_STATUSES.includes(status) || !simPos) {
+    if (!canShareLocation || (hasLive && !simOnce) || !ACTIVE_STATUSES.includes(status) || !simPos) {
       return undefined;
     }
     const now = Date.now();
@@ -228,7 +256,7 @@ export default function TripMap({ request, canShareLocation, height = 260, scrol
       .then(() => setSimLogged(true))
       .catch(() => {});
     return undefined;
-  }, [simPos, canShareLocation, hasLive, status, request._id]);
+  }, [simPos, canShareLocation, hasLive, simOnce, status, request._id]);
 
   // "Track Live Location" (RequestsPanel's dedicated button, separate
   // from "Start Navigation") opens this same map with autoShare -- start
@@ -301,7 +329,14 @@ export default function TripMap({ request, canShareLocation, height = 260, scrol
   // While the real road path is still resolving, fall back to the
   // straight two-point line so the map isn't blank for the ~1s round trip.
   const routePoints = route && route.path.length > 1 ? route.path : endpoints;
-  const markerPos = hasLive || isStopped ? liveLocation : simPos;
+  // In simOnce (SimulateModal), never show the "Live"/"Last known" labels
+  // or re-center the view tightly on a stale real fix -- that's what used
+  // to freeze the demo marker. simOnce always reads as the simulated
+  // preview, even on a booking that happens to have real liveLocation
+  // data sitting in the database from earlier GPS-sharing testing.
+  const displayAsLive = hasLive && !simOnce;
+  const displayAsStopped = isStopped && !simOnce;
+  const markerPos = displayAsLive || displayAsStopped ? liveLocation : simPos;
 
   return (
     <div className="trip-map">
@@ -320,18 +355,21 @@ export default function TripMap({ request, canShareLocation, height = 260, scrol
         {markerPos && (
           <Marker
             position={[markerPos.lat, markerPos.lng]}
-            icon={pinIcon(hasLive ? '#DC2626' : isStopped ? '#9CA3AF' : '#D97706', hasLive ? t('map.live') : isStopped ? t('map.lastKnown', 'Last known location') : t('map.simulatedPreview'))}
+            icon={pinIcon(
+              displayAsLive ? '#DC2626' : displayAsStopped ? '#9CA3AF' : '#D97706',
+              displayAsLive ? t('map.live') : displayAsStopped ? t('map.lastKnown', 'Last known location') : t('map.simulatedPreview'),
+            )}
           />
         )}
-        {hasLive && markerPos && <LiveFollow lat={markerPos.lat} lng={markerPos.lng} />}
+        {displayAsLive && markerPos && <LiveFollow lat={markerPos.lat} lng={markerPos.lng} />}
       </MapContainer>
       <div className="trip-map-footer">
-        <span className={`trip-map-badge${hasLive ? ' trip-map-badge-live' : isStopped ? ' trip-map-badge-stopped' : ''}`}>
-          {hasLive ? t('map.live') : isStopped ? t('map.lastKnown', 'Last known location') : t('map.simulatedPreview')}
+        <span className={`trip-map-badge${displayAsLive ? ' trip-map-badge-live' : displayAsStopped ? ' trip-map-badge-stopped' : ''}`}>
+          {displayAsLive ? t('map.live') : displayAsStopped ? t('map.lastKnown', 'Last known location') : t('map.simulatedPreview')}
         </span>
-        {isStopped && <span className="trip-map-hint">{t('map.sharingStoppedHint', 'Sharing was stopped -- this is the last position reported.')}</span>}
-        {ACTIVE_STATUSES.includes(status) && !hasLive && !isStopped && <span className="trip-map-hint">{t('map.noLiveLocationYet')}</span>}
-        {canShareLocation && simLogged && !hasLive && ACTIVE_STATUSES.includes(status) && (
+        {displayAsStopped && <span className="trip-map-hint">{t('map.sharingStoppedHint', 'Sharing was stopped -- this is the last position reported.')}</span>}
+        {ACTIVE_STATUSES.includes(status) && !displayAsLive && !displayAsStopped && <span className="trip-map-hint">{t('map.noLiveLocationYet')}</span>}
+        {canShareLocation && simLogged && !displayAsLive && ACTIVE_STATUSES.includes(status) && (
           <span className="trip-map-hint">{t('map.simulatedLogged', 'Simulated trail is being logged')}</span>
         )}
         {canShareLocation && ACTIVE_STATUSES.includes(status) && (

@@ -15,6 +15,12 @@ export const updateRequestStatus = (id, status) => apiFetch(`/requests/${id}/sta
 // being written into match.liveLocation / shown as a real "Live" marker
 // (see routes/matches.js's PATCH /:id/location).
 export const updateRequestLocation = (id, lat, lng, source) => apiFetch(`/requests/${id}/location`, json('PATCH', { lat, lng, source })).then((d) => d.liveLocation);
+// Called from TripMap's "Stop sharing" toggle -- tells the backend
+// sharing has stopped (match.liveLocation.active -> false) so every
+// viewer sees the last known point honestly labelled as no longer live,
+// instead of it staying marked "Live" forever (see
+// routes/matches.js's PATCH /:id/location/stop).
+export const stopRequestLocation = (id) => apiFetch(`/requests/${id}/location/stop`, json('PATCH', {})).then((d) => d.liveLocation);
 
 export const STATUS_LABELS = {
   pending_fleet_approval: 'Pending Fleet Approval',

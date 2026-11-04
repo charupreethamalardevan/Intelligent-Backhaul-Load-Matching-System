@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { resolvePoint } from '../lib/resolvePoint.js';
-import { getRequest, updateRequestLocation } from '../lib/requestApi.js';
+import { getRequest, updateRequestLocation, stopRequestLocation } from '../lib/requestApi.js';
 import { getRoutePath, positionAtFraction } from '../lib/routeGeometry.js';
 import './TripMap.css';
 
@@ -99,7 +99,13 @@ export default function TripMap({ request, canShareLocation, height = 260, scrol
 
   const trip = request.tripId;
   const status = request.status;
-  const hasLive = !!(liveLocation && liveLocation.lat != null && liveLocation.lng != null);
+  // Three distinct states, not two: never shared -> no liveLocation at
+  // all; actively sharing right now -> hasLive; shared before but
+  // explicitly stopped (match.liveLocation.active === false, set by
+  // stopSharing() below) -> isStopped, which still shows the pin, just
+  // honestly labelled as a last-known point instead of "Live".
+  const hasLive = !!(liveLocation && liveLocation.lat != null && liveLocation.lng != null && liveLocation.active !== false);
+  const isStopped = !!(liveLocation && liveLocation.lat != null && liveLocation.lng != null && liveLocation.active === false);
 
   useEffect(() => {
     simOnceStartRef.current = null;
@@ -274,6 +280,13 @@ export default function TripMap({ request, canShareLocation, height = 260, scrol
     if (watchIdRef.current != null) navigator.geolocation.clearWatch(watchIdRef.current);
     watchIdRef.current = null;
     setSharing(false);
+    // Tell the backend sharing stopped (not just this tab) so every other
+    // viewer of this booking -- the poster's Track Load, the other
+    // side's own map -- stops showing a "Live" marker that's no longer
+    // actually live. The point itself stays visible, just relabelled.
+    stopRequestLocation(request._id)
+      .then((loc) => setLiveLocation(loc))
+      .catch((err) => setShareError(err.message));
   }
 
   if (!trip || !coords) {
@@ -288,7 +301,7 @@ export default function TripMap({ request, canShareLocation, height = 260, scrol
   // While the real road path is still resolving, fall back to the
   // straight two-point line so the map isn't blank for the ~1s round trip.
   const routePoints = route && route.path.length > 1 ? route.path : endpoints;
-  const markerPos = hasLive ? liveLocation : simPos;
+  const markerPos = hasLive || isStopped ? liveLocation : simPos;
 
   return (
     <div className="trip-map">
@@ -307,14 +320,17 @@ export default function TripMap({ request, canShareLocation, height = 260, scrol
         {markerPos && (
           <Marker
             position={[markerPos.lat, markerPos.lng]}
-            icon={pinIcon(hasLive ? '#DC2626' : '#D97706', hasLive ? t('map.live') : t('map.simulatedPreview'))}
+            icon={pinIcon(hasLive ? '#DC2626' : isStopped ? '#9CA3AF' : '#D97706', hasLive ? t('map.live') : isStopped ? t('map.lastKnown', 'Last known location') : t('map.simulatedPreview'))}
           />
         )}
         {hasLive && markerPos && <LiveFollow lat={markerPos.lat} lng={markerPos.lng} />}
       </MapContainer>
       <div className="trip-map-footer">
-        <span className={`trip-map-badge${hasLive ? ' trip-map-badge-live' : ''}`}>{hasLive ? t('map.live') : t('map.simulatedPreview')}</span>
-        {ACTIVE_STATUSES.includes(status) && !hasLive && <span className="trip-map-hint">{t('map.noLiveLocationYet')}</span>}
+        <span className={`trip-map-badge${hasLive ? ' trip-map-badge-live' : isStopped ? ' trip-map-badge-stopped' : ''}`}>
+          {hasLive ? t('map.live') : isStopped ? t('map.lastKnown', 'Last known location') : t('map.simulatedPreview')}
+        </span>
+        {isStopped && <span className="trip-map-hint">{t('map.sharingStoppedHint', 'Sharing was stopped -- this is the last position reported.')}</span>}
+        {ACTIVE_STATUSES.includes(status) && !hasLive && !isStopped && <span className="trip-map-hint">{t('map.noLiveLocationYet')}</span>}
         {canShareLocation && simLogged && !hasLive && ACTIVE_STATUSES.includes(status) && (
           <span className="trip-map-hint">{t('map.simulatedLogged', 'Simulated trail is being logged')}</span>
         )}

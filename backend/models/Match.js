@@ -37,11 +37,18 @@ const matchSchema = new mongoose.Schema(
     // Real GPS reported by the truck side while on the road (status
     // 'pickup'/'in_transit') -- also mirrored into TruckLocationLog as an
     // append-only history (this field stays as the single "latest point"
-    // for cheap reads; TruckLocationLog.js is the full trail).
+    // for cheap reads; TruckLocationLog.js is the full trail). `active`
+    // distinguishes "currently live" from "the vehicle side stopped
+    // sharing" -- lat/lng/updatedAt are deliberately left in place when
+    // sharing stops (see routes/matches.js's PATCH /:id/location/stop) so
+    // viewers keep seeing the last known point instead of it vanishing;
+    // only `active` flips to false, which is what TripMap.jsx uses to
+    // show it as "Last known location" instead of a live "Live" marker.
     liveLocation: {
       lat: { type: Number, default: null },
       lng: { type: Number, default: null },
       updatedAt: { type: Date, default: null },
+      active: { type: Boolean, default: true },
     },
   },
   { timestamps: true },

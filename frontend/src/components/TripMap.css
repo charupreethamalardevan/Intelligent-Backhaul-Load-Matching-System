@@ -72,6 +72,15 @@
   background: color-mix(in srgb, #DC2626 10%, transparent);
 }
 
+/* Sharing was stopped -- still shows the last reported point (see
+   TripMap.jsx's isStopped), just a neutral grey instead of the red
+   "Live" treatment so it never reads as an active feed. */
+.trip-map-badge-stopped {
+  color: #6B7280;
+  border-color: #6B7280;
+  background: color-mix(in srgb, #6B7280 10%, transparent);
+}
+
 .trip-map-hint {
   font-size: 11.5px;
   color: var(--muted);

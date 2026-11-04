@@ -342,7 +342,10 @@ router.patch('/:id/location', async (req, res) => {
     // reading (source omitted or 'real_gps') updates it.
     const isSimulated = source === 'simulated';
     if (!isSimulated) {
-      match.liveLocation = { lat, lng, updatedAt: new Date() };
+      // A fresh real GPS point always (re)marks sharing as active -- this
+      // is what flips a previously-stopped "Last known location" back
+      // into a genuine "Live" marker the moment the driver shares again.
+      match.liveLocation = { lat, lng, updatedAt: new Date(), active: true };
       await match.save();
     }
     await TruckLocationLog.create({
@@ -356,6 +359,34 @@ router.patch('/:id/location', async (req, res) => {
   } catch (err) {
     console.error('[matches/update-location]', err);
     res.status(500).json({ error: 'Could not update the live location.' });
+  }
+});
+
+// PATCH /api/requests/:id/location/stop -- the vehicle side explicitly
+// turning "Share my location" off (TripMap.jsx's stopSharing()). Leaves
+// lat/lng/updatedAt exactly as they were -- only flips `active` to false
+// -- so every viewer of this booking keeps seeing the last known point,
+// just honestly labelled as no longer live instead of either vanishing
+// or (the bug this fixes) staying marked "Live" forever after sharing
+// actually stopped.
+router.patch('/:id/location/stop', async (req, res) => {
+  try {
+    const match = await Match.findById(req.params.id);
+    if (!match) return res.status(404).json({ error: 'Request not found.' });
+
+    const side = await sideOfCaller(req, match);
+    if (side !== 'vehicle') {
+      return res.status(403).json({ error: 'Only the vehicle side of this booking can stop sharing its location.' });
+    }
+
+    if (match.liveLocation && match.liveLocation.lat != null) {
+      match.liveLocation.active = false;
+      await match.save();
+    }
+    res.json({ liveLocation: match.liveLocation });
+  } catch (err) {
+    console.error('[matches/stop-location]', err);
+    res.status(500).json({ error: 'Could not stop sharing the live location.' });
   }
 });
 

@@ -7,6 +7,17 @@
   position: relative;
 }
 
+/* Scopes the suggestions dropdown's "top: 100%" to just the input row's
+   own height, not the whole component's (which also includes the
+   quick-pick chips and, once toggled on, the 220px map) -- without this,
+   the dropdown was anchoring to the bottom of the ENTIRE addr-input-wrap
+   (input + chips + map), landing far down the page and overlapping
+   unrelated form fields (Weight, Price, Delivery deadline, Post load)
+   whenever the map was open, making a suggestion easy to miss-click. */
+.addr-input-anchor {
+  position: relative;
+}
+
 .addr-input-row {
   display: flex;
   gap: 6px;

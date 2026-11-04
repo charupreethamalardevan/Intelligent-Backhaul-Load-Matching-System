@@ -160,6 +160,7 @@ export default function AddressInput({
 
   return (
     <div className="addr-input-wrap" style={style}>
+      <div className="addr-input-anchor">
       <div className="addr-input-row">
         <input
           id={id}
@@ -219,6 +220,7 @@ export default function AddressInput({
             ))}
         </div>
       )}
+      </div>
 
       {cities.length > 0 && !disabled && (
         <div className="addr-input-chips">
